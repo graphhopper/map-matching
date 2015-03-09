@@ -71,6 +71,7 @@ public class MapMatchingMain {
             mapMatching.setSeparatedSearchDistance(args.getInt("separatedSearchDistance", 500));
             mapMatching.setMaxSearchMultiplier(args.getInt("maxSearchMultiplier", 100));
             mapMatching.setForceRepair(args.getBool("forceRepair", false));
+            mapMatching.setSkipUTurns(args.getBool("skipUTurns", true));
 
             // do the actual matching, get the GPX entries from a file or via stream
             String gpxLocation = args.get("gpx", "");

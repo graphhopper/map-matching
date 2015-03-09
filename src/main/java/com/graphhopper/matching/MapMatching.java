@@ -78,6 +78,7 @@ public class MapMatching {
     private final int nodeCount;
     private DistanceCalc distanceCalc = new DistancePlaneProjection();
     private boolean forceRepair;
+    private boolean skipUTurns;
     private static final Comparator<QueryResult> CLOSEST_MATCH = new Comparator<QueryResult>() {
         @Override
         public int compare(QueryResult o1, QueryResult o2) {
@@ -120,6 +121,10 @@ public class MapMatching {
         this.forceRepair = forceRepair;
     }
 
+    public void setSkipUTurns(boolean skipUTurns) {
+        this.skipUTurns = skipUTurns;
+    }
+
     /**
      * This method does the actual map matchting.
      * <p>
@@ -127,6 +132,52 @@ public class MapMatching {
      * of the graph specified in the constructor
      */
     public MatchResult doWork(List<GPXEntry> gpxList) {
+
+        List<GPXEntry> gpxSubList = gpxList;
+        List<MatchResult> matchResults = new ArrayList<MatchResult>();
+        TempMatchResult tempMatchResult;
+
+        while (gpxSubList.size() > 0) {
+            tempMatchResult = _doWork(gpxSubList);
+            matchResults.add(tempMatchResult.getMatchResult());
+
+            gpxSubList = gpxSubList.subList(tempMatchResult.getEndIndex(), gpxSubList.size());
+        }
+
+        // Combine matchResults
+        List<EdgeMatch> edgeMatches = new ArrayList<EdgeMatch>();
+        MatchResult matchResult = new MatchResult(edgeMatches);
+
+        for (MatchResult mr : matchResults) {
+            matchResult.setMatchLength(matchResult.getMatchLength() + mr.getMatchLength());
+            matchResult.setMatchMillis(matchResult.getMatchMillis() + mr.getMatchMillis());
+            edgeMatches.addAll(mr.getEdgeMatches());
+        }
+        matchResult.setEdgeMatches(edgeMatches);
+
+        //////// Calculate stats to determine quality of matching ////////
+
+        double gpxLength = 0;
+        GPXEntry prevEntry = gpxList.get(0);
+        for (int i = 1; i < gpxList.size(); i++) {
+            GPXEntry entry = gpxList.get(i);
+            gpxLength += distanceCalc.calcDist(prevEntry.lat, prevEntry.lon, entry.lat, entry.lon);
+            prevEntry = entry;
+        }
+
+        long gpxMillis = gpxList.get(gpxList.size() - 1).getMillis() - gpxList.get(0).getMillis();
+        matchResult.setGPXEntriesMillis(gpxMillis);
+        matchResult.setGPXEntriesLength(gpxLength);
+
+        // remove later
+        //matchResult.setEdgeMatches(checkOrCleanup(matchResult.getEdgeMatches(), forceRepair, skipUTurns));
+        //matchResult.setEdgeMatches(matchResult.getEdgeMatches());
+
+        return matchResult;
+
+    }
+
+    private TempMatchResult _doWork(List<GPXEntry> gpxList) {
         int currentIndex = 0;
         if (gpxList.size() < 2) {
             throw new IllegalStateException("gpx list needs at least 2 points!");
@@ -145,6 +196,7 @@ public class MapMatching {
                 gpxLength += distanceCalc.calcDist(prevEntry.lat, prevEntry.lon, entry.lat, entry.lon);
                 prevEntry = entry;
                 separatedListEndIndex++;
+
                 if (separatedSearchDistance > 0 && gpxLength > separatedSearchDistance) {
                     // avoid that last sublist is only 1 point and include it in current list
                     if (gpxList.size() - separatedListEndIndex == 1) {
@@ -170,7 +222,7 @@ public class MapMatching {
             matchResult.setMatchMillis(matchResult.getMatchMillis() + subMatch.getMatchMillis());
 
             // an error should never occur
-            result = checkOrCleanup(result, false);
+            result = checkOrCleanup(result, false, skipUTurns);
 
             // no merging necessary as end of old and new start GPXExtension & edge should be identical
             for (int i = 0; i < result.size(); i++) {
@@ -180,6 +232,9 @@ public class MapMatching {
                     // skip edge if we would introduce a u-turn, see testAvoidOffRoadUTurns
                     EdgeMatch lastEdgeMatch = edgeMatches.get(edgeMatches.size() - 1);
                     if (lastEdgeMatch.getEdgeState().getAdjNode() == currEM.getEdgeState().getAdjNode()) {
+                        if (!skipUTurns) {
+                            doEnd = true;
+                        }
                         continue;
                     }
                 }
@@ -192,23 +247,10 @@ public class MapMatching {
             }
         }
 
-        //////// Calculate stats to determine quality of matching //////// 
-        double gpxLength = 0;
-        GPXEntry prevEntry = gpxList.get(0);
-        for (int i = 1; i < gpxList.size(); i++) {
-            GPXEntry entry = gpxList.get(i);
-            gpxLength += distanceCalc.calcDist(prevEntry.lat, prevEntry.lon, entry.lat, entry.lon);
-            prevEntry = entry;
-        }
 
-        long gpxMillis = gpxList.get(gpxList.size() - 1).getMillis() - gpxList.get(0).getMillis();
-        matchResult.setGPXEntriesMillis(gpxMillis);
-        matchResult.setGPXEntriesLength(gpxLength);
 
-        // remove later
-        matchResult.setEdgeMatches(checkOrCleanup(matchResult.getEdgeMatches(), forceRepair));
-
-        return matchResult;
+        //return new TempEdgeMatches(edgeMatches, currentIndex);
+        return new TempMatchResult(matchResult, currentIndex);
     }
 
     /**
@@ -399,6 +441,7 @@ public class MapMatching {
                 }
             }
         }
+
         if (doEnd) {
             // add very last edge
             EdgeIteratorState es = pathEdgeList.get(pathEdgeList.size() - 1);
@@ -557,7 +600,7 @@ public class MapMatching {
     }
 
     // TODO instead of checking for edge duplicates check for missing matches
-    List<EdgeMatch> checkOrCleanup(List<EdgeMatch> inputList, boolean forceRepair) {
+    List<EdgeMatch> checkOrCleanup(List<EdgeMatch> inputList, boolean forceRepair, boolean skipUTurns) {
         int prevNode = -1;
         int prevEdge = -1;
         List<String> errors = null;
@@ -568,34 +611,38 @@ public class MapMatching {
             errors = new ArrayList<String>();
         }
 
+
         for (int i = 0; i < inputList.size(); i++) {
             EdgeMatch em = inputList.get(i);
             EdgeIteratorState edge = em.getEdgeState();
             String str = edge.getName() + ":" + edge.getBaseNode() + "->" + edge.getAdjNode();
+            boolean fixedOrientation = false;
+
             if (prevEdge >= 0) {
                 if (edge.getEdge() == prevEdge) {
-                    if (forceRepair) {
-                        // in all cases skip current edge
-                        boolean hasNextEdge = i + 1 < inputList.size();
-                        if (hasNextEdge) {
-                            EdgeIteratorState nextEdge = inputList.get(i + 1).getEdgeState();
-                            // remove previous edge in case of a u-turn
-                            if (edge.getAdjNode() == nextEdge.getBaseNode()) {
+                    boolean hasNextEdge = i + 1 < inputList.size();
+                    if (hasNextEdge) {
+                        EdgeIteratorState nextEdge = inputList.get(i + 1).getEdgeState();
+
+                        // Detect U-turn
+                        if (edge.getAdjNode() == nextEdge.getBaseNode()) {
+                            // Remove previous edge if flags are on
+                            if (skipUTurns && forceRepair) {
                                 repairedResult.remove(repairedResult.size() - 1);
                                 if (!repairedResult.isEmpty()) {
                                     em = repairedResult.get(repairedResult.size() - 1);
                                     edge = em.getEdgeState();
-                                    prevEdge = edge.getEdge();
-                                    prevNode = edge.getAdjNode();
                                 } else {
                                     prevEdge = -1;
                                     prevNode = -1;
+                                    continue;
                                 }
                             }
+
+                        } else {
+                            // Identical edge and orientation
+                            errors.add("duplicate edge:" + str);
                         }
-                        continue;
-                    } else {
-                        errors.add("duplicate edge:" + str);
                     }
                 }
             }
@@ -608,6 +655,10 @@ public class MapMatching {
                             continue;
                         } else {
                             // really an orientation problem
+                            fixedOrientation = true;
+                            // FIXME: How to flip an edge (base/adjacent nodes)?
+                            // fixOrientation flag fixes the error on the first run for checkOrRepair but subsequent
+                            // calls provides errors because the nodes wont match (See tests).
                             em = new EdgeMatch(edge = em.getEdgeState().detach(true), em.getGpxExtensions());
                         }
                     } else {
@@ -621,7 +672,12 @@ public class MapMatching {
             }
 
             prevEdge = edge.getEdge();
-            prevNode = edge.getAdjNode();
+            if (fixedOrientation) {
+                prevNode = edge.getBaseNode();
+            } else {
+                prevNode = edge.getAdjNode();
+            }
+
         }
 
         if (!forceRepair && !errors.isEmpty()) {
