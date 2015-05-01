@@ -15,13 +15,15 @@ Apache License 2.0
 
 ### Installation and Usage
 
-Install Java and Maven. Then import the area you want to do map-matching on:
+Install Java and Maven. First, you need to import the area you want to do map-matching on:
 
 ```bash
 ./map-matching.sh action=import datasource=./some-dir/osm-file.pbf [vehicle=car]
 ```
 
-and then do these matches:
+The parameter vehicle defines the routing profile. Other options are `vehicle=bike` or `vehicle=foot`. If you have already imported a datasource with a specific profile, you first need to remove the folder graph-cache in your map-matching-master directory.
+
+Second, you can do these matches:
 ```bash
 ./map-matching.sh action=match gpx=./track-data/.*gpx
 ```
