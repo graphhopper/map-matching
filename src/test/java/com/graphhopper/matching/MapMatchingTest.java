@@ -221,26 +221,26 @@ public class MapMatchingTest {
         // incorrect orientation
         list.add(new EdgeMatch(GHUtility.getEdge(graph, 880, 24627), Collections.<GPXExtension>emptyList()));
         // duplicate edge        
-        list.add(new EdgeMatch(GHUtility.getEdge(graph, 880, 24627), Collections.<GPXExtension>emptyList()));
+        list.add(new EdgeMatch(GHUtility.getEdge(graph, 24627, 880), Collections.<GPXExtension>emptyList()));
 
         try {
-            mm.checkOrCleanup(list, false);
+            mm.checkOrCleanup(list, false, true);
             assertTrue(false);
         } catch (Exception ex) {
 
         }
 
         // repair
-        List<EdgeMatch> res = mm.checkOrCleanup(list, true);
-        // dup edge is removed
+        List<EdgeMatch> res = mm.checkOrCleanup(list, true, true);
+        // 2nd edge is flipped and 3rd is removed as a duplicate
         assertEquals(Arrays.asList("A 9:0->24627", "A 9:24627->880"), fetchStreets(res));
 
         // now repaired list must not throw an exception
-        mm.checkOrCleanup(res, false);
+        mm.checkOrCleanup(res, false, true);
     }
 
     @Test
-    public void testRepairUTurn() {
+    public void testRepairSkipUTurn() {
         Graph graph = hopper.getGraph();
         MapMatching mm = new MapMatching(graph, null, null);
         List<EdgeMatch> list = new ArrayList<EdgeMatch>();
@@ -250,14 +250,58 @@ public class MapMatchingTest {
         list.add(new EdgeMatch(GHUtility.getEdge(graph, 880, 24627), Collections.<GPXExtension>emptyList()));
         list.add(new EdgeMatch(GHUtility.getEdge(graph, 24627, 880), Collections.<GPXExtension>emptyList()));
 
-        // repair
-        List<EdgeMatch> res = mm.checkOrCleanup(list, true);
+        // Repair needed to skip UTurn
+        List<EdgeMatch> res = mm.checkOrCleanup(list, true, true);
         // two edges are removed
         assertEquals(Arrays.asList("A 9:0->24627", "A 9:24627->880"), fetchStreets(res));
 
         // now repaired list must not throw an exception
-        mm.checkOrCleanup(res, false);
+        mm.checkOrCleanup(res, false, true);
     }
+
+    @Test
+    public void testUTurn() {
+        Graph graph = hopper.getGraph();
+        MapMatching mm = new MapMatching(graph, null, null);
+        List<EdgeMatch> list = new ArrayList<EdgeMatch>();
+
+        list.add(new EdgeMatch(GHUtility.getEdge(graph, 0, 24627), Collections.<GPXExtension>emptyList()));
+        list.add(new EdgeMatch(GHUtility.getEdge(graph, 24627, 880), Collections.<GPXExtension>emptyList()));
+        list.add(new EdgeMatch(GHUtility.getEdge(graph, 880, 24627), Collections.<GPXExtension>emptyList()));
+        list.add(new EdgeMatch(GHUtility.getEdge(graph, 24627, 880), Collections.<GPXExtension>emptyList()));
+
+        // Repair not needed
+        List<EdgeMatch> res = mm.checkOrCleanup(list, false, false);
+        // Accept UTurns
+        assertEquals(Arrays.asList("A 9:0->24627", "A 9:24627->880", "A 9:880->24627", "A 9:24627->880"), fetchStreets(res));
+
+        // now repaired list must not throw an exception
+        mm.checkOrCleanup(res, false, false);
+    }
+
+    @Test
+    public void testRepairUTurn() {
+        Graph graph = hopper.getGraph();
+        MapMatching mm = new MapMatching(graph, null, null);
+        List<EdgeMatch> list = new ArrayList<EdgeMatch>();
+
+        // System.out.println(GHUtility.getNeighbors(graph.createEdgeExplorer().setBaseNode(24627)));
+        list.add(new EdgeMatch(GHUtility.getEdge(graph, 0, 24627), Collections.<GPXExtension>emptyList()));
+
+        // incorrect orientation
+        list.add(new EdgeMatch(GHUtility.getEdge(graph, 880, 24627), Collections.<GPXExtension>emptyList()));
+        // accept Uturn
+        list.add(new EdgeMatch(GHUtility.getEdge(graph, 880, 24627), Collections.<GPXExtension>emptyList()));
+
+        // repair orientation
+        List<EdgeMatch> res = mm.checkOrCleanup(list, true, false);
+        // accept UTurn
+        assertEquals(Arrays.asList("A 9:0->24627", "A 9:24627->880", "A 9:880->24627"), fetchStreets(res));
+
+        // now repaired list must not throw an exception
+        mm.checkOrCleanup(res, false, false);
+    }
+
 
     List<String> fetchStreets(List<EdgeMatch> emList) {
         List<String> list = new ArrayList<String>();
