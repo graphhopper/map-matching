@@ -60,7 +60,7 @@ hopper.setEncodingManager(new EncodingManager(encoder));
 hopper.setCHEnable(false);
 hopper.importOrLoad();
 
-// create MapMatching object, can and should be shared accross threads
+// create MapMatching object, can and should be shared across threads
 
 GraphStorage graph = hopper.getGraph();
 LocationIndexMatch locationIndex = new LocationIndexMatch(graph,
