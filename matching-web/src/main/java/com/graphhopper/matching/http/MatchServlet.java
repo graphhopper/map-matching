@@ -17,9 +17,9 @@
  */
 package com.graphhopper.matching.http;
 
-import com.graphhopper.AltResponse;
 import com.graphhopper.GHResponse;
 import com.graphhopper.GraphHopper;
+import com.graphhopper.PathWrapper;
 import com.graphhopper.http.GraphHopperServlet;
 import com.graphhopper.http.RouteSerializer;
 import com.graphhopper.matching.EdgeMatch;
@@ -107,7 +107,7 @@ public class MatchServlet extends GraphHopperServlet {
         String vehicle = getParam(httpReq, "vehicle", "car");
 
         Locale locale = Helper.getLocale(getParam(httpReq, "locale", "en"));
-        AltResponse matchGHRsp = new AltResponse();
+        PathWrapper matchPath = new PathWrapper();
         MatchResult matchRsp = null;
         StopWatch sw = new StopWatch().start();
 
@@ -123,25 +123,25 @@ public class MatchServlet extends GraphHopperServlet {
             // fill GHResponse for identical structure            
             Path path = matching.calcPath(matchRsp);
             Translation tr = trMap.getWithFallBack(locale);
-            new PathMerger().doWork(matchGHRsp, Collections.singletonList(path), tr);
+            new PathMerger().doWork(matchPath, Collections.singletonList(path), tr);
 
         } catch (Exception ex) {
-            matchGHRsp.addError(ex);
+            matchPath.addError(ex);
         }
 
-        logger.info(httpReq.getQueryString() + ", " + infoStr + ", took:" + sw.stop().getSeconds() + ", entries:" + gpxFile.getEntries().size() + ", " + matchGHRsp.getDebugInfo());
+        logger.info(httpReq.getQueryString() + ", " + infoStr + ", took:" + sw.stop().getSeconds() + ", entries:" + gpxFile.getEntries().size() + ", " + matchPath.getDebugInfo());
 
         if (EXTENDED_JSON_FORMAT.equals(format)) {
-            if (matchGHRsp.hasErrors()) {
+            if (matchPath.hasErrors()) {
                 httpRes.setStatus(SC_BAD_REQUEST);
-                httpRes.getWriter().append(new JSONArray(matchGHRsp.getErrors()).toString());
+                httpRes.getWriter().append(new JSONArray(matchPath.getErrors()).toString());
             } else {
                 httpRes.getWriter().write(new MatchResultToJson(matchRsp).exportTo().toString());
             }
 
         } else if (GPX_FORMAT.equals(format)) {
-            String xml = createGPXString(httpReq, httpRes, matchGHRsp);
-            if (matchGHRsp.hasErrors()) {
+            String xml = createGPXString(httpReq, httpRes, matchPath);
+            if (matchPath.hasErrors()) {
                 httpRes.setStatus(SC_BAD_REQUEST);
                 httpRes.getWriter().append(xml);
             } else {
@@ -149,7 +149,7 @@ public class MatchServlet extends GraphHopperServlet {
             }
         } else {
             GHResponse rsp = new GHResponse();
-            rsp.addAlternative(matchGHRsp);
+            rsp.add(matchPath);
             Map<String, Object> map = routeSerializer.toJSON(rsp, true, pointsEncoded,
                     enableElevation, enableInstructions);
 
