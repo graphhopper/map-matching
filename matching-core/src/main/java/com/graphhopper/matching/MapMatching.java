@@ -20,7 +20,6 @@ package com.graphhopper.matching;
 import com.graphhopper.routing.Dijkstra;
 import com.graphhopper.routing.Path;
 import com.graphhopper.routing.QueryGraph;
-import com.graphhopper.routing.util.AbstractWeighting;
 import com.graphhopper.routing.util.DefaultEdgeFilter;
 import com.graphhopper.routing.util.EdgeFilter;
 import com.graphhopper.routing.util.FastestWeighting;
@@ -31,15 +30,18 @@ import com.graphhopper.storage.SPTEntry;
 import com.graphhopper.storage.Graph;
 import com.graphhopper.storage.index.QueryResult;
 import com.graphhopper.util.*;
-import gnu.trove.map.hash.TIntDoubleHashMap;
+import de.bmw.hmm.MostLikelySequence;
+import de.bmw.hmm.TimeStep;
+import de.bmw.offline_map_matching.map_matcher.OfflineMapMatcher;
+import de.bmw.offline_map_matching.map_matcher.SpatialMetrics;
+import de.bmw.offline_map_matching.map_matcher.TemporalMetrics;
+import gnu.trove.list.TIntList;
+import gnu.trove.list.array.TIntArrayList;
 import gnu.trove.map.hash.TIntObjectHashMap;
-import gnu.trove.procedure.TIntObjectProcedure;
+import gnu.trove.procedure.TIntProcedure;
 import gnu.trove.set.hash.TIntHashSet;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
+
+import java.util.*;
 
 /**
  * This class matches real world GPX entries to the digital road network stored
@@ -146,70 +148,155 @@ public class MapMatching {
      * of the graph specified in the constructor
      */
     public MatchResult doWork(List<GPXEntry> gpxList) {
-        int currentIndex = 0;
-        if (gpxList.size() < 2) {
-            throw new IllegalStateException("gpx list needs at least 2 points!");
+        EdgeFilter edgeFilter = new DefaultEdgeFilter(encoder);
+        List<TimeStep<QueryResult, GPXEntry>> timeSteps = new ArrayList<TimeStep<QueryResult, GPXEntry>>();
+        List<QueryResult> allQueryResults = new ArrayList<QueryResult>();
+        for (GPXEntry entry : gpxList) {
+            List<QueryResult> qResults = locationIndex.findNClosest(entry.lat, entry.lon, edgeFilter);
+            allQueryResults.addAll(qResults);
+            System.out.printf("Candidates: %d\n", qResults.size());
+            TimeStep<QueryResult, GPXEntry> timeStep = new TimeStep<QueryResult, GPXEntry>(entry, qResults);
+            timeSteps.add(timeStep);
+        }
+        TemporalMetrics<GPXEntry> temporalMetrics = new TemporalMetrics<GPXEntry>() {
+            @Override
+            public double timeDifference(GPXEntry m1, GPXEntry m2) {
+                long deltaT = m2.getTime() - m1.getTime();
+                System.out.printf("Time diff: %d\n", deltaT);
+                return deltaT;
+            }
+        };
+        SpatialMetrics<QueryResult, GPXEntry> spatialMetrics = new SpatialMetrics<QueryResult, GPXEntry>() {
+            @Override
+            public double measurementDistance(QueryResult roadPosition, GPXEntry measurement) {
+                System.out.printf("Measurement dist: %f\n", roadPosition.getQueryDistance());
+                return roadPosition.getQueryDistance();
+            }
+            @Override
+            public double linearDistance(GPXEntry formerMeasurement, GPXEntry laterMeasurement) {
+                double v = distanceCalc.calcDist(formerMeasurement.lat, formerMeasurement.lon, laterMeasurement.lat, laterMeasurement.lon);
+                System.out.printf("Linear dist: %f\n", v);
+                if (v == 0) {
+                    System.out.println("Wurst.");
+                }
+                return v;
+            }
+            @Override
+            public Double routeLength(QueryResult sourcePosition, QueryResult targetPosition) {
+                Dijkstra dijkstra = new Dijkstra(graph, encoder, weighting, traversalMode);
+                double distance = dijkstra.calcPath(sourcePosition.getClosestNode(), targetPosition.getClosestNode()).getDistance();
+                System.out.printf("Dist: %f\n", distance);
+                return distance;
+            }
+        };
+        MostLikelySequence<QueryResult, GPXEntry> seq = OfflineMapMatcher.computeMostLikelySequence(timeSteps, temporalMetrics, spatialMetrics);
+
+        System.out.println(seq.isBroken);
+        System.out.println(seq.sequence);
+        System.out.printf("%d -> %d\n", timeSteps.size(), seq.sequence.size());
+
+        // every virtual edge maps to its real edge where the orientation is already correct!
+        TIntObjectHashMap<EdgeIteratorState> virtualEdgesMap = new TIntObjectHashMap<EdgeIteratorState>();
+
+        QueryGraph queryGraph = new QueryGraph(graph);
+        queryGraph.lookup(allQueryResults);
+
+        final EdgeExplorer explorer = queryGraph.createEdgeExplorer(edgeFilter);
+
+        for (TimeStep<QueryResult, GPXEntry> timeStep : timeSteps) {
+            for (QueryResult candidate : timeStep.candidates) {
+                fillVirtualEdges(virtualEdgesMap, explorer, candidate);
+            }
         }
 
-        List<QueryResult> firstQueryResults = new ArrayList<QueryResult>();
+
         List<EdgeMatch> edgeMatches = new ArrayList<EdgeMatch>();
-        MatchResult matchResult = new MatchResult(edgeMatches);
-        while (true) {
-            int separatedListStartIndex = currentIndex;
-            int separatedListEndIndex = separatedListStartIndex + 1;
-            GPXEntry prevEntry = gpxList.get(separatedListStartIndex);
-            double gpxLength = 0;
-            while (separatedListEndIndex < gpxList.size()) {
-                GPXEntry entry = gpxList.get(separatedListEndIndex);
-                gpxLength += distanceCalc.calcDist(prevEntry.lat, prevEntry.lon, entry.lat, entry.lon);
-                prevEntry = entry;
-                separatedListEndIndex++;
-                if (separatedSearchDistance > 0 && gpxLength > separatedSearchDistance) {
-                    // avoid that last sublist is only 1 point and include it in current list
-                    if (gpxList.size() - separatedListEndIndex == 1) {
-                        continue;
-                    }
+        final TIntList nodes = new TIntArrayList();
+        double distance = 0.0;
+        long time = 0;
+        if (!seq.isBroken) {
+            // TODO: assert that no two consecutive nodes are the same.
+            // TODO: (if so, debounce.)
+            List<List<GPXExtension>> gpxExtensions = new ArrayList<List<GPXExtension>>();
+            QueryResult queryResult = seq.sequence.get(0);
+            nodes.add(queryResult.getClosestNode());
+            gpxExtensions.add(Collections.singletonList(new GPXExtension(gpxList.get(0), queryResult, 0)));
+            for (int j=1; j<seq.sequence.size(); j++) {
+                QueryResult nextQueryResult = seq.sequence.get(j);
+                Dijkstra dijkstra = new Dijkstra(queryGraph, encoder, weighting, traversalMode);
+                Path path = dijkstra.calcPath(queryResult.getClosestNode(), nextQueryResult.getClosestNode());
+                distance += path.getDistance();
+                time += path.getTime();
+                TIntList tIntList = path.calcNodes();
+                for (int k=1; k<tIntList.size(); ++k) {
+                    nodes.add(tIntList.get(k));
+                }
+                for (int k=1; k<tIntList.size()-1; ++k) {
+                    gpxExtensions.add(Collections.<GPXExtension>emptyList());
+                }
+                gpxExtensions.add(Collections.singletonList(new GPXExtension(gpxList.get(j), nextQueryResult, j)));
+                queryResult = nextQueryResult;
+            }
+            System.out.println(nodes);
 
-                    break;
+            final TIntList realNodes = new TIntArrayList();
+
+            List<List<GPXExtension>> realEdgeGpxExtensions = new ArrayList<List<GPXExtension>>();
+            List<GPXExtension> oneBucketGPXExtensions = new ArrayList<GPXExtension>();
+            for (int j=0; j<nodes.size(); ++j) {
+                List<GPXExtension> gpxExtensions1 = gpxExtensions.get(j);
+                oneBucketGPXExtensions.addAll(gpxExtensions1);
+                int node = nodes.get(j);
+                if (node < nodeCount) {
+                    if (realNodes.isEmpty() || realNodes.get(realNodes.size()-1) != node) {
+                        realEdgeGpxExtensions.add(oneBucketGPXExtensions);
+                        oneBucketGPXExtensions = new ArrayList<GPXExtension>();
+                        realNodes.add(node);
+                    }
+                } else if (!realNodes.isEmpty()) {
+                    EdgeIterator edgeIterator = explorer.setBaseNode(node);
+                    edgeIterator.next();
+                    if (edgeIterator.getAdjNode() == realNodes.get(realNodes.size()-1)) {
+                        edgeIterator.next();
+                    }
+                    if (edgeIterator.getAdjNode() < nodeCount) {
+                        realEdgeGpxExtensions.add(oneBucketGPXExtensions);
+                        oneBucketGPXExtensions = new ArrayList<GPXExtension>();
+                        realNodes.add(edgeIterator.getAdjNode());
+                    }
                 }
             }
 
-            currentIndex = separatedListEndIndex;
-            List<GPXEntry> gpxSublist = gpxList.subList(separatedListStartIndex, separatedListEndIndex);
-
-            if (gpxSublist.size() < 2) {
-                throw new IllegalStateException("GPX sublist is too short: "
-                        + gpxSublist + " taken from [" + separatedListStartIndex + "," + separatedListEndIndex + ") " + gpxList.size());
-            }
-
-            boolean doEnd = currentIndex >= gpxList.size();
-            MatchResult subMatch = doWork(firstQueryResults, gpxSublist, gpxLength, doEnd);
-            List<EdgeMatch> result = subMatch.getEdgeMatches();
-            matchResult.setMatchLength(matchResult.getMatchLength() + subMatch.getMatchLength());
-            matchResult.setMatchMillis(matchResult.getMatchMillis() + subMatch.getMatchMillis());
-
-            // an error should never occur
-            result = checkOrCleanup(result, false);
-
-            // no merging necessary as end of old and new start GPXExtension & edge should be identical
-            for (int i = 0; i < result.size(); i++) {
-                EdgeMatch currEM = result.get(i);
-
-                if (i == 0 && !edgeMatches.isEmpty()) {
-                    // skip edge if we would introduce a u-turn, see testAvoidOffRoadUTurns
-                    EdgeMatch lastEdgeMatch = edgeMatches.get(edgeMatches.size() - 1);
-                    if (lastEdgeMatch.getEdgeState().getAdjNode() == currEM.getEdgeState().getAdjNode()) {
-                        continue;
-                    }
+            if (nodes.get(0) >= nodeCount) {
+                EdgeIterator edgeIterator = explorer.setBaseNode(nodes.get(0));
+                edgeIterator.next();
+                if (edgeIterator.getAdjNode() == realNodes.get(0)) {
+                    edgeIterator.next();
                 }
+                int realNode = traverseToClosestRealAdj(explorer, edgeIterator);
+                realNodes.insert(0, realNode);
+            }
+            System.out.println(realNodes);
 
-                edgeMatches.add(currEM);
+            int n1 = realNodes.get(0);
+            for (int j=1; j<realNodes.size(); j++) {
+                int n2 = realNodes.get(j);
+//                EdgeIteratorState edge = GHUtility.getEdge(graph, n1, n2);
+                // TODO: I only want to get the edge, but the previous line gives me the wrong edge, which
+                // somehow doesn't know the street name. In fact, there seem to be several edges between
+                // the same pair of nodes. A multigraph.
+                EdgeIteratorState edge = new Dijkstra(graph, encoder, weighting, traversalMode).calcPath(n1, n2).calcEdges().get(0);
+                edgeMatches.add(new EdgeMatch(edge, realEdgeGpxExtensions.get(j-1)));
+                n1 = n2;
             }
 
-            if (doEnd) {
-                break;
-            }
         }
+        System.out.println(edgeMatches);
+
+        MatchResult matchResult = new MatchResult(edgeMatches);
+        matchResult.setMatchMillis(time);
+        matchResult.setMatchLength(distance);
+
 
         //////// Calculate stats to determine quality of matching //////// 
         double gpxLength = 0;
@@ -224,352 +311,18 @@ public class MapMatching {
         matchResult.setGPXEntriesMillis(gpxMillis);
         matchResult.setGPXEntriesLength(gpxLength);
 
-        // remove later
-        matchResult.setEdgeMatches(checkOrCleanup(matchResult.getEdgeMatches(), forceRepair));
-
         return matchResult;
-    }
-
-    /**
-     * This method creates a matching for the specified sublist, it uses the
-     * firstQueryResults to do the initialization for the start nodes, or just a
-     * locationIndex lookup if none.
-     *
-     * @param doEnd the very last virtual edges is always removed, except if
-     * doEnd is true, then the original edge is added
-     */
-    MatchResult doWork(List<QueryResult> firstQueryResults,
-            List<GPXEntry> gpxList, double gpxLength, boolean doEnd) {
-        int guessedEdgesPerPoint = 4;
-        List<EdgeMatch> edgeMatches = new ArrayList<EdgeMatch>();
-        final TIntObjectHashMap<List<GPXExtension>> extensionMap
-                = new TIntObjectHashMap<List<GPXExtension>>(gpxList.size() * guessedEdgesPerPoint, 0.5f, -1);
-        final TIntDoubleHashMap minFactorMap = new TIntDoubleHashMap(gpxList.size() * guessedEdgesPerPoint, 0.5f, -1, -1);
-        EdgeFilter edgeFilter = new DefaultEdgeFilter(encoder);
-        int startIndex = -1;
-        List<QueryResult> startQRList = null, endQRList = null;
-
-        //////// Lookup Phase (1) ////////
-        for (int gpxIndex = 0; gpxIndex < gpxList.size(); gpxIndex++) {
-            GPXEntry entry = gpxList.get(gpxIndex);
-
-            List<QueryResult> qResults = gpxIndex == 0 && !firstQueryResults.isEmpty()
-                    ? firstQueryResults
-                    : locationIndex.findNClosest(entry.lat, entry.lon, edgeFilter);
-
-            if (qResults.isEmpty()) {
-                // throw new IllegalStateException("no match found for " + entry);
-                continue;
-            }
-
-            if (startIndex < 0) {
-                startIndex = gpxIndex;
-                startQRList = qResults;
-            } else {
-                endQRList = qResults;
-            }
-
-            for (int matchIndex = 0; matchIndex < qResults.size(); matchIndex++) {
-                QueryResult qr = qResults.get(matchIndex);
-                int edge = qr.getClosestEdge().getEdge();
-                List<GPXExtension> extensionList = extensionMap.get(edge);
-                if (extensionList == null) {
-                    extensionList = new ArrayList<GPXExtension>(5);
-                    extensionMap.put(edge, extensionList);
-                }
-
-                extensionList.add(new GPXExtension(entry, qr, gpxIndex));
-            }
-        }
-
-        if (startQRList == null || endQRList == null) {
-            throw new IllegalArgumentException("Input GPX list does not contain valid points "
-                    + "or outside of imported area!? " + gpxList.size() + ", " + gpxList);
-        }
-
-        // sort by distance to closest edge
-        Collections.sort(startQRList, CLOSEST_MATCH);
-        Collections.sort(endQRList, CLOSEST_MATCH);
-
-        //////// Custom Weighting Phase (2) ////////
-        final DoubleRef maxWeight = new DoubleRef(0);
-        AbstractWeighting customWeighting = new AbstractWeighting(encoder) {
-            @Override
-            public double calcWeight(EdgeIteratorState edge, boolean reverse, int prevOrNextEdgeId) {
-                double matchFactor = minFactorMap.get(edge.getEdge());
-                double weight = weighting.calcWeight(edge, reverse, prevOrNextEdgeId);
-                if (matchFactor < 0) {
-                    return maxWeight.value * weight;
-                }
-
-                return matchFactor * weight;
-            }
-
-            @Override
-            public double getMinWeight(double distance) {
-                return weighting.getMinWeight(distance);
-            }
-
-            @Override
-            public String getName() {
-                return weighting.getName();
-            }
-        };
-
-        QueryGraph queryGraph = new QueryGraph(graph);
-        List<QueryResult> allQRs = new ArrayList<QueryResult>();
-        allQRs.addAll(startQRList);
-        allQRs.addAll(endQRList);
-        queryGraph.lookup(allQRs);
-        EdgeExplorer explorer = queryGraph.createEdgeExplorer(edgeFilter);
-
-        // every virtual edge maps to its real edge where the orientation is already correct!
-        TIntObjectHashMap<EdgeIteratorState> virtualEdgesMap = new TIntObjectHashMap<EdgeIteratorState>();
-
-        // make new virtual edges from QueryGraph also available in minDistanceMap and prefer them
-        for (QueryResult qr : startQRList) {
-            fillVirtualEdges(minFactorMap, virtualEdgesMap, explorer, qr);
-        }
-        for (QueryResult qr : endQRList) {
-            fillVirtualEdges(minFactorMap, virtualEdgesMap, explorer, qr);
-        }
-
-        extensionMap.forEachEntry(new TIntObjectProcedure<List<GPXExtension>>() {
-            @Override
-            public boolean execute(int edge, List<GPXExtension> list) {
-                double minimumDist = Double.MAX_VALUE;
-                for (GPXExtension ext : list) {
-                    if (ext.queryResult.getQueryDistance() < minimumDist) {
-                        minimumDist = ext.queryResult.getQueryDistance();
-                    }
-                }
-
-                // Prefer close match, prefer direct match (small minimumMatchIndex) and many GPX points.
-                // And '+0.5' to avoid extreme decrease in case of a match close to a tower node
-                double weight = minimumDist + .5;
-                if (weight > maxWeight.value) {
-                    maxWeight.value = weight;
-                }
-                minFactorMap.put(edge, weight);
-                return true;
-            }
-        });
-
-        TIntHashSet goalSet = new TIntHashSet(endQRList.size());
-        for (QueryResult qr : endQRList) {
-            goalSet.add(qr.getClosestNode());
-        }
-
-        //////// Search Phase (3) ////////
-        CustomDijkstra algo = new CustomDijkstra(goalSet, queryGraph, encoder, customWeighting,
-                traversalMode, maxNodesToVisit, maxSearchWeightMultiplier, ignoreOneways);
-
-        // Set an approximative weight for start nodes.
-        // The method initFrom uses minimum weight if two QueryResult edges share same node        
-        for (QueryResult qr : startQRList) {
-            double distance = distanceCalc.calcDist(qr.getQueryPoint().getLat(), qr.getQueryPoint().getLon(),
-                    qr.getSnappedPoint().getLat(), qr.getSnappedPoint().getLon());
-
-            // TODO take speed from edge instead of taking default speed and reducing it via maxSearchMultiplier        
-            // encoder.getSpeed(qr.getClosestEdge().getFlags())
-            algo.initFrom(qr.getClosestNode(), customWeighting.getMinWeight(distance * maxSearchWeightMultiplier));
-        }
-
-        algo.runAlgo();
-        if (!algo.oneNodeWasReached()) {
-            throw new RuntimeException("Cannot find matching path! Wrong vehicle " + encoder
-                    + " or missing OpenStreetMap data? Try to increase maxNodesToVisit ("
-                    + maxNodesToVisit + "). Current gpx sublist:"
-                    + gpxList.size() + ", start list:" + startQRList + ", end list:" + endQRList
-                    + ", bounds: " + graph.getBounds());
-        }
-
-        // choose a good end point i.e. close to query point but also close to the start points
-        Path path = algo.extractPath(endQRList);
-        List<EdgeIteratorState> pathEdgeList = path.calcEdges();
-
-        if (pathEdgeList.isEmpty()) {
-            throw new RuntimeException("Cannot extract path - no edges returned? "
-                    + " from:" + startQRList + ", to:" + endQRList + ", for input list of size:"
-                    + gpxList.size() + " [" + gpxList.get(0) + " ... " + gpxList.get(gpxList.size() - 1) + "]");
-        }
-
-        // only in the first run of doWork firstQueryResults.clear() won't clear 'startQRList' too:
-        firstQueryResults.clear();
-        int lastMatchNode = pathEdgeList.get(pathEdgeList.size() - 1).getAdjNode();
-        for (QueryResult qr : endQRList) {
-            if (qr.getClosestNode() == lastMatchNode) {
-                firstQueryResults.add(qr);
-            }
-        }
-
-        if (firstQueryResults.isEmpty()) {
-            throw new RuntimeException("No start query results for next iteration specified! "
-                    + ", edges:" + pathEdgeList.size() + ", entries:" + gpxList.size()
-                    // startQRs is empty as we called firstQueryResults.clear()
-                    + ", all results:" + allQRs + ", end results:" + endQRList);
-        }
-
-        //
-        // replace virtual edges with original *full edge* at start and end!
-        List<EdgeIteratorState> list = new ArrayList<EdgeIteratorState>(pathEdgeList.size());
-        for (EdgeIteratorState es : pathEdgeList) {
-            // skip edges with virtual adjacent node => which are either incoming edges from end-QueryResult
-            // or ignorable bridge edges from start-QueryResult with two virtual nodes                        
-            // good: outgoding edges from end-QueryResults are adding => no problem if path includes end-QueryResult
-            if (!isVirtualNode(es.getAdjNode())) {
-                EdgeIteratorState realEdge = virtualEdgesMap.get(es.getEdge());
-                if (realEdge == null) {
-                    list.add(es);
-                } else {
-                    if (list.isEmpty() || list.get(0).getEdge() != realEdge.getEdge()) {
-                        list.add(realEdge);
-                    }
-                }
-            }
-        }
-        if (doEnd) {
-            // add very last edge
-            EdgeIteratorState es = pathEdgeList.get(pathEdgeList.size() - 1);
-            if (isVirtualNode(es.getAdjNode())) {
-                EdgeIteratorState realEdge = virtualEdgesMap.get(es.getEdge());
-                if (list.isEmpty() || list.get(0).getEdge() != realEdge.getEdge()) {
-                    list.add(realEdge.detach(true));
-                }
-            }
-        }
-        pathEdgeList = list;
-
-        //////// Match Phase (4) ////////
-        int minGPXIndex = startIndex;
-        for (EdgeIteratorState edge : pathEdgeList) {
-            List<GPXExtension> gpxExtensionList = extensionMap.get(edge.getEdge());
-            if (gpxExtensionList == null) {
-                edgeMatches.add(new EdgeMatch(edge, Collections.<GPXExtension>emptyList()));
-                continue;
-            }
-
-            List<GPXExtension> clonedList = new ArrayList<GPXExtension>(gpxExtensionList.size());
-            // skip GPXExtensions with too small index otherwise EdgeMatch could go into the past
-            int newMinGPXIndex = minGPXIndex;
-            for (GPXExtension ext : gpxExtensionList) {
-                if (ext.gpxListIndex > minGPXIndex) {
-                    clonedList.add(ext);
-                    if (newMinGPXIndex < ext.gpxListIndex) {
-                        newMinGPXIndex = ext.gpxListIndex;
-                    }
-                }
-            }
-            minGPXIndex = newMinGPXIndex;
-            EdgeMatch edgeMatch = new EdgeMatch(edge, clonedList);
-            edgeMatches.add(edgeMatch);
-        }
-
-        MatchResult res = new MatchResult(edgeMatches);
-        res.setMatchLength(path.getDistance());
-        res.setMatchMillis(path.getTime());
-
-        return res;
     }
 
     private boolean isVirtualNode(int node) {
         return node >= nodeCount;
     }
 
-    private static class DoubleRef {
-
-        double value;
-
-        public DoubleRef(double value) {
-            this.value = value;
-        }
-    }
-
-    // make some methods public
-    private class CustomDijkstra extends Dijkstra {
-
-        private final TIntHashSet goalNodeSet;
-        private boolean oneNodeWasReached = false;
-        private final int maxNodesToVisit;
-        private final boolean ignoreOneways;
-        private final double maxSearchWeightMultiplier;
-
-        public CustomDijkstra(TIntHashSet goalNodeSet, Graph g, FlagEncoder encoder, Weighting weighting,
-                TraversalMode tMode, int maxNodesToVisit, double maxSearchWeightMultiplier, boolean allowBothDirections) {
-            super(g, encoder, weighting, tMode);
-            this.goalNodeSet = goalNodeSet;
-            this.maxNodesToVisit = maxNodesToVisit;
-            this.maxSearchWeightMultiplier = maxSearchWeightMultiplier;
-            this.ignoreOneways = allowBothDirections;
-        }
-
-        public void initFrom(int node, double weight) {
-            SPTEntry entry = createSPTEntry(node, weight);
-            if (currEdge == null || currEdge.weight > weight) {
-                currEdge = entry;
-            }
-
-            SPTEntry old = fromMap.get(node);
-            if (old == null || old.weight > weight) {
-                fromHeap.add(entry);
-                fromMap.put(node, entry);
-            }
-        }
-
-        @Override
-        public void runAlgo() {
-            checkAlreadyRun();
-
-            if (ignoreOneways) {
-                outEdgeExplorer = graph.createEdgeExplorer(new DefaultEdgeFilter(encoder, true, true));
-            }
-            super.runAlgo();
-        }
-
-        boolean oneNodeWasReached() {
-            return oneNodeWasReached;
-        }
-
-        @Override
-        protected boolean finished() {
-            if (goalNodeSet.remove(currEdge.adjNode)) {
-                oneNodeWasReached = true;
-                if (goalNodeSet.isEmpty()) {
-                    return true;
-                }
-            }
-
-            if (getVisitedNodes() > maxNodesToVisit) {
-                return true;
-            }
-
-            return false;
-        }
-
-        public Path extractPath(Collection<QueryResult> endQRs) {
-            // pick QueryResult closest to last GPX entry
-            // => prefer QueryResults close to the edge
-            double bestWeight = Double.MAX_VALUE;
-            for (QueryResult qr : endQRs) {
-                int node = qr.getClosestNode();
-                SPTEntry tmp1 = fromMap.get(node);
-                double w = weighting.getMinWeight(qr.getQueryDistance() * maxSearchWeightMultiplier);
-                if (tmp1 != null && bestWeight > tmp1.weight + w) {
-                    currEdge = tmp1;
-                    bestWeight = tmp1.weight + w;
-                }
-            }
-
-            return new Path(graph, flagEncoder).setWeight(currEdge.weight).setSPTEntry(currEdge).extract();
-        }
-    }
-
     /**
      * Fills the minFactorMap with weights for the virtual edges.
      */
-    private void fillVirtualEdges(TIntDoubleHashMap minFactorMap,
-            TIntObjectHashMap<EdgeIteratorState> virtualEdgesMap,
-            EdgeExplorer explorer, QueryResult qr) {
+    private void fillVirtualEdges(TIntObjectHashMap<EdgeIteratorState> virtualEdgesMap,
+                                  EdgeExplorer explorer, QueryResult qr) {
         EdgeIterator iter = explorer.setBaseNode(qr.getClosestNode());
         while (iter.next()) {
             if (isVirtualNode(qr.getClosestNode())) {
@@ -580,10 +333,6 @@ public class MapMatching {
                 }
             }
 
-            double dist = minFactorMap.get(iter.getEdge());
-            if (dist < 0 || dist > qr.getQueryDistance()) {
-                minFactorMap.put(iter.getEdge(), qr.getQueryDistance() + 0.5);
-            }
         }
     }
 

@@ -52,6 +52,8 @@
         <url>https://github.com/graphhopper/map-matching/issues</url>
     </issueManagement>
     <modules>
+        <module>hmm-lib</module>
+        <module>offline-map-matching</module>
         <module>matching-core</module>
         <module>matching-web</module>
     </modules>
