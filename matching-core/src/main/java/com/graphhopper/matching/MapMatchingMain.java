@@ -117,7 +117,7 @@ public class MapMatchingMain {
                 } catch (Exception ex) {
                     importSW.stop();
                     matchSW.stop();
-                    logger.error("Problem with file " + gpxFile + " Error: " + ex.getMessage());
+                    logger.error("Problem with file " + gpxFile + " Error: " + ex.getMessage(), ex);
                 }
             }
             System.out.println("gps import took:" + importSW.getSeconds() + "s, match took: " + matchSW.getSeconds());

@@ -271,10 +271,11 @@ public class MapMatching {
             if (nodes.get(0) >= nodeCount) {
                 EdgeIterator edgeIterator = explorer.setBaseNode(nodes.get(0));
                 edgeIterator.next();
-                if (edgeIterator.getAdjNode() == realNodes.get(0)) {
-                    edgeIterator.next();
-                }
                 int realNode = traverseToClosestRealAdj(explorer, edgeIterator);
+                if (realNode == realNodes.get(0)) {
+                    edgeIterator.next();
+                    realNode = traverseToClosestRealAdj(explorer, edgeIterator);
+                }
                 realNodes.insert(0, realNode);
             }
             System.out.println(realNodes);
@@ -286,7 +287,11 @@ public class MapMatching {
                 // TODO: I only want to get the edge, but the previous line gives me the wrong edge, which
                 // somehow doesn't know the street name. In fact, there seem to be several edges between
                 // the same pair of nodes. A multigraph.
-                EdgeIteratorState edge = new Dijkstra(graph, encoder, weighting, traversalMode).calcPath(n1, n2).calcEdges().get(0);
+                List<EdgeIteratorState> edges = new Dijkstra(graph, encoder, weighting, traversalMode).calcPath(n1, n2).calcEdges();
+                if (edges.isEmpty()) {
+                    throw new RuntimeException("No edge from " + n1 + " to " + n2);
+                }
+                EdgeIteratorState edge = edges.get(0);
                 edgeMatches.add(new EdgeMatch(edge, realEdgeGpxExtensions.get(j-1)));
                 n1 = n2;
             }
