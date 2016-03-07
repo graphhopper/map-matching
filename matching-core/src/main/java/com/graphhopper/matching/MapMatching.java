@@ -161,9 +161,9 @@ public class MapMatching {
         TemporalMetrics<GPXEntry> temporalMetrics = new TemporalMetrics<GPXEntry>() {
             @Override
             public double timeDifference(GPXEntry m1, GPXEntry m2) {
-                long deltaT = m2.getTime() - m1.getTime();
-                System.out.printf("Time diff: %d\n", deltaT);
-                return deltaT;
+                double deltaTs = (m2.getTime() - m1.getTime()) / 1000.0;
+                System.out.printf("Time diff: %.2f\n", deltaTs);
+                return deltaTs;
             }
         };
         SpatialMetrics<QueryResult, GPXEntry> spatialMetrics = new SpatialMetrics<QueryResult, GPXEntry>() {
