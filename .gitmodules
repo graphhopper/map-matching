@@ -1,0 +1,6 @@
+[submodule "hmm-lib"]
+	path = hmm-lib
+	url = https://github.com/michaz/hmm-lib.git
+[submodule "offline-map-matching"]
+	path = offline-map-matching
+	url = https://github.com/michaz/offline-map-matching.git
