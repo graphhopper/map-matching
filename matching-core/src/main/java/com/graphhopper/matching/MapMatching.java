@@ -160,12 +160,16 @@ public class MapMatching {
         EdgeFilter edgeFilter = new DefaultEdgeFilter(encoder);
         List<TimeStep<QueryResult, GPXEntry>> timeSteps = new ArrayList<TimeStep<QueryResult, GPXEntry>>();
         List<QueryResult> allQueryResults = new ArrayList<QueryResult>();
+        GPXEntry previous = null;
         for (GPXEntry entry : gpxList) {
-            List<QueryResult> qResults = locationIndex.findNClosest(entry.lat, entry.lon, edgeFilter);
-            allQueryResults.addAll(qResults);
-            System.out.printf("Candidates: %d\n", qResults.size());
-            TimeStep<QueryResult, GPXEntry> timeStep = new TimeStep<QueryResult, GPXEntry>(entry, qResults);
-            timeSteps.add(timeStep);
+            if (previous == null || distanceCalc.calcDist(previous.lat, previous.lon, entry.lat, entry.lon) > measurementErrorSigma) {
+                List<QueryResult> qResults = locationIndex.findNClosest(entry.lat, entry.lon, edgeFilter);
+                allQueryResults.addAll(qResults);
+                System.out.printf("Candidates: %d\n", qResults.size());
+                TimeStep<QueryResult, GPXEntry> timeStep = new TimeStep<QueryResult, GPXEntry>(entry, qResults);
+                timeSteps.add(timeStep);
+                previous = entry;
+            }
         }
         TemporalMetrics<GPXEntry> temporalMetrics = new TemporalMetrics<GPXEntry>() {
             @Override

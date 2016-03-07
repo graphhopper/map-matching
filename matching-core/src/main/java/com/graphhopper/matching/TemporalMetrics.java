@@ -18,14 +18,12 @@
 package com.graphhopper.matching;
 
 
-import de.bmw.offline_map_matching.map_matcher.MapMatchingHmmProbabilities;
-
 /**
  * Defines temporal metrics between location measurements.
  *
  * @param <O> location measurement type, which corresponds to the HMM observation.
  */
-public interface TemporalMetrics<O> {
+interface TemporalMetrics<O> {
 
     /**
      * Returns the time difference in seconds between the specified location measurements.

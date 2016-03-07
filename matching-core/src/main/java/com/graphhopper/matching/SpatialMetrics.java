@@ -28,7 +28,7 @@ package com.graphhopper.matching;
  * @param <S> road position type, which corresponds to the HMM state.
  * @param <O> location measurement type, which corresponds to the HMM observation.
  */
-public interface SpatialMetrics<S, O> {
+interface SpatialMetrics<S, O> {
 
     /**
      * Returns the linear distance [m] between the specified location measurement and the specified
