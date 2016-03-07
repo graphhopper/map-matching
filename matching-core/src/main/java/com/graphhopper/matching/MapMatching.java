@@ -70,7 +70,7 @@ public class MapMatching {
      * Standard deviation of the normal distribution [m] used for modeling the GPS error taken from
      * Newson&Krumm.
      */
-    private double measurementErrorSigma = 4.07;
+    private double measurementErrorSigma = 10.07;
 
     /**
      * Beta parameter of the exponential distribution for modeling transition probabilities.
@@ -160,16 +160,12 @@ public class MapMatching {
         EdgeFilter edgeFilter = new DefaultEdgeFilter(encoder);
         List<TimeStep<QueryResult, GPXEntry>> timeSteps = new ArrayList<TimeStep<QueryResult, GPXEntry>>();
         List<QueryResult> allQueryResults = new ArrayList<QueryResult>();
-        GPXEntry previous = null;
         for (GPXEntry entry : gpxList) {
-            if (previous == null || distanceCalc.calcDist(previous.lat, previous.lon, entry.lat, entry.lon) > measurementErrorSigma) {
-                List<QueryResult> qResults = locationIndex.findNClosest(entry.lat, entry.lon, edgeFilter);
-                allQueryResults.addAll(qResults);
-                System.out.printf("Candidates: %d\n", qResults.size());
-                TimeStep<QueryResult, GPXEntry> timeStep = new TimeStep<QueryResult, GPXEntry>(entry, qResults);
-                timeSteps.add(timeStep);
-                previous = entry;
-            }
+            List<QueryResult> qResults = locationIndex.findNClosest(entry.lat, entry.lon, edgeFilter);
+            allQueryResults.addAll(qResults);
+            System.out.printf("Candidates: %d\n", qResults.size());
+            TimeStep<QueryResult, GPXEntry> timeStep = new TimeStep<QueryResult, GPXEntry>(entry, qResults);
+            timeSteps.add(timeStep);
         }
         TemporalMetrics<GPXEntry> temporalMetrics = new TemporalMetrics<GPXEntry>() {
             @Override
