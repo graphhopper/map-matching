@@ -293,7 +293,6 @@ public class MapMatching {
 
         }
         System.out.println(edgeMatches);
-        edgeMatches = checkOrCleanup(edgeMatches, true);
         MatchResult matchResult = new MatchResult(edgeMatches);
         matchResult.setMatchMillis(time);
         matchResult.setMatchLength(distance);
