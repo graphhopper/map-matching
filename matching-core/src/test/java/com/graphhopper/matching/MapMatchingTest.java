@@ -117,7 +117,7 @@ public class MapMatchingTest {
                 "Bayrischer Platz", "Bayrischer Platz", "Bayrischer Platz"),
                 fetchStreets(mr.getEdgeMatches()));
         assertEquals(mr.getGpxEntriesLength(), mr.getMatchLength(), .1);
-        assertEquals(mr.getGpxEntriesMillis(), mr.getMatchMillis());
+        assertEquals(mr.getGpxEntriesMillis(), mr.getMatchMillis(), 1);
 
         path = mapMatching.calcPath(mr);
         matchGHRsp = new PathWrapper();
@@ -140,7 +140,7 @@ public class MapMatchingTest {
 
         // System.out.println(fetchStreets(mr.getEdgeMatches()));
         assertEquals(mr.getGpxEntriesLength(), mr.getMatchLength(), 0.5);
-        assertEquals(mr.getGpxEntriesMillis(), mr.getMatchMillis(), 20);
+        assertEquals(mr.getGpxEntriesMillis(), mr.getMatchMillis(), 200);
         assertEquals(138, mr.getEdgeMatches().size());
 
         // TODO full path with 20m distortion
