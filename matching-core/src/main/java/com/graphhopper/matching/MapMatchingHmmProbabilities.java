@@ -34,19 +34,7 @@ class MapMatchingHmmProbabilities<S, O> implements HmmProbabilities<S, O> {
 
     private final SpatialMetrics<S, O> spatialMetrics;
     private final TemporalMetrics<O> temporalMetrics;
-
-    /**
-     * Standard deviation of the normal distribution [m] used for modeling the GPS error taken from
-     * Newson&Krumm.
-     */
     private final double measurementErrorSigma;
-
-    /**
-     * Beta parameter of the exponential distribution for modeling transition probabilities.
-     * Empirically computed from the Microsoft ground truth data for shortest route lengths and
-     * 60 s sampling interval but also works for other sampling intervals.
-     *
-     */
     private final double transitionProbabilityBeta;
 
     public MapMatchingHmmProbabilities(List<TimeStep<S, O>> timeSteps,
@@ -59,11 +47,6 @@ class MapMatchingHmmProbabilities<S, O> implements HmmProbabilities<S, O> {
         this.temporalMetrics = temporalMetrics;
         this.measurementErrorSigma = measurementErrorSigma;
         this.transitionProbabilityBeta = transitionProbabilityBeta;
-    }
-
-    public MapMatchingHmmProbabilities(List<TimeStep<S, O>> timeSteps,
-                                       SpatialMetrics<S, O> spatialMetrics, TemporalMetrics<O> temporalMetric) {
-        this(timeSteps, spatialMetrics, temporalMetric, 4.07, 0.00959442);
     }
 
     /**

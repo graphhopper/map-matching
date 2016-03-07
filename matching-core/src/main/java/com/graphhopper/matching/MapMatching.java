@@ -66,7 +66,20 @@ public class MapMatching {
     private final FlagEncoder encoder;
     private final TraversalMode traversalMode;
 
+    /**
+     * Standard deviation of the normal distribution [m] used for modeling the GPS error taken from
+     * Newson&Krumm.
+     */
     private double measurementErrorSigma = 4.07;
+
+    /**
+     * Beta parameter of the exponential distribution for modeling transition probabilities.
+     * Empirically computed from the Microsoft ground truth data for shortest route lengths and
+     * 60 s sampling interval but also works for other sampling intervals.
+     *
+     */
+    private double transitionProbabilityBeta = 0.00959442;
+
 
     // we split the incoming list into smaller parts (hopefully) without loops
     // later we'll detect loops and insert the correctly detected road recursivly
@@ -185,7 +198,7 @@ public class MapMatching {
             }
         };
         MapMatchingHmmProbabilities<QueryResult, GPXEntry> probabilities =
-                new MapMatchingHmmProbabilities<QueryResult, GPXEntry>(timeSteps, spatialMetrics, temporalMetrics);
+                new MapMatchingHmmProbabilities<QueryResult, GPXEntry>(timeSteps, spatialMetrics, temporalMetrics, measurementErrorSigma, transitionProbabilityBeta);
         MostLikelySequence<QueryResult, GPXEntry> seq = Hmm.computeMostLikelySequence(probabilities, timeSteps.iterator());
 
         System.out.println(seq.isBroken);
