@@ -176,14 +176,13 @@ public class MapMatching {
             public double linearDistance(GPXEntry formerMeasurement, GPXEntry laterMeasurement) {
                 double v = distanceCalc.calcDist(formerMeasurement.lat, formerMeasurement.lon, laterMeasurement.lat, laterMeasurement.lon);
                 System.out.printf("Linear dist: %f\n", v);
-                if (v == 0) {
-                    System.out.println("Wurst.");
-                }
                 return v;
             }
             @Override
             public Double routeLength(QueryResult sourcePosition, QueryResult targetPosition) {
-                Dijkstra dijkstra = new Dijkstra(graph, encoder, weighting, traversalMode);
+                QueryGraph queryGraph = new QueryGraph(graph);
+                queryGraph.lookup(sourcePosition, targetPosition);
+                Dijkstra dijkstra = new Dijkstra(queryGraph, encoder, weighting, traversalMode);
                 double distance = dijkstra.calcPath(sourcePosition.getClosestNode(), targetPosition.getClosestNode()).getDistance();
                 System.out.printf("Dist: %f\n", distance);
                 return distance;
@@ -259,10 +258,13 @@ public class MapMatching {
                     if (edgeIterator.getAdjNode() == realNodes.get(realNodes.size()-1)) {
                         edgeIterator.next();
                     }
-                    if (edgeIterator.getAdjNode() < nodeCount) {
-                        realEdgeGpxExtensions.add(oneBucketGPXExtensions);
-                        oneBucketGPXExtensions = new ArrayList<GPXExtension>();
-                        realNodes.add(edgeIterator.getAdjNode());
+                    int realNode = traverseToClosestRealAdj(explorer, edgeIterator);
+                    realEdgeGpxExtensions.add(oneBucketGPXExtensions);
+                    oneBucketGPXExtensions = new ArrayList<GPXExtension>();
+                    realNodes.add(realNode);
+                    while (j < nodes.size()-1 && node >= nodeCount) {
+                        j++;
+                        node = nodes.get(j);
                     }
                 }
             }
