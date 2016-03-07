@@ -186,7 +186,7 @@ public class MapMatchingTest {
                 "Gustav-Adolf-Straße", "Leibnizstraße", "Hinrichsenstraße",
                 "Hinrichsenstraße", "Tschaikowskistraße", "Tschaikowskistraße"),
                 fetchStreets(mr.getEdgeMatches()));
-        assertEquals(mr.getGpxEntriesLength(), mr.getMatchLength(), 1);
+        assertEquals(mr.getGpxEntriesLength(), mr.getMatchLength(), 5);
         // TODO why is there such a big difference for millis?
         assertEquals(mr.getGpxEntriesMillis(), mr.getMatchMillis(), 6000);
     }
