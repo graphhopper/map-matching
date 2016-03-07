@@ -43,14 +43,9 @@
             <version>${log4j.version}</version>
         </dependency>
         <dependency>
-            <groupId>de.bmw.offline_map_matching</groupId>
-            <artifactId>offline_map_matching</artifactId>
-            <version>0.1.0</version>
-        </dependency>
-        <dependency>
             <groupId>de.bmw.hmm</groupId>
             <artifactId>hmm</artifactId>
-            <version>0.1.0</version>
+            <version>0.2.0-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>junit</groupId>

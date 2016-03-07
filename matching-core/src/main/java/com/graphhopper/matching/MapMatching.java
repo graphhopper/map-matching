@@ -20,28 +20,21 @@ package com.graphhopper.matching;
 import com.graphhopper.routing.Dijkstra;
 import com.graphhopper.routing.Path;
 import com.graphhopper.routing.QueryGraph;
-import com.graphhopper.routing.util.DefaultEdgeFilter;
-import com.graphhopper.routing.util.EdgeFilter;
-import com.graphhopper.routing.util.FastestWeighting;
-import com.graphhopper.routing.util.FlagEncoder;
-import com.graphhopper.routing.util.TraversalMode;
-import com.graphhopper.routing.util.Weighting;
-import com.graphhopper.storage.SPTEntry;
+import com.graphhopper.routing.util.*;
 import com.graphhopper.storage.Graph;
 import com.graphhopper.storage.index.QueryResult;
 import com.graphhopper.util.*;
+import de.bmw.hmm.Hmm;
 import de.bmw.hmm.MostLikelySequence;
 import de.bmw.hmm.TimeStep;
-import de.bmw.offline_map_matching.map_matcher.OfflineMapMatcher;
-import de.bmw.offline_map_matching.map_matcher.SpatialMetrics;
-import de.bmw.offline_map_matching.map_matcher.TemporalMetrics;
 import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
 import gnu.trove.map.hash.TIntObjectHashMap;
-import gnu.trove.procedure.TIntProcedure;
-import gnu.trove.set.hash.TIntHashSet;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 
 /**
  * This class matches real world GPX entries to the digital road network stored
@@ -72,6 +65,9 @@ public class MapMatching {
     private final LocationIndexMatch locationIndex;
     private final FlagEncoder encoder;
     private final TraversalMode traversalMode;
+
+    private double measurementErrorSigma = 4.07;
+
     // we split the incoming list into smaller parts (hopefully) without loops
     // later we'll detect loops and insert the correctly detected road recursivly
     // see #1
@@ -188,7 +184,9 @@ public class MapMatching {
                 return distance;
             }
         };
-        MostLikelySequence<QueryResult, GPXEntry> seq = OfflineMapMatcher.computeMostLikelySequence(timeSteps, temporalMetrics, spatialMetrics);
+        MapMatchingHmmProbabilities<QueryResult, GPXEntry> probabilities =
+                new MapMatchingHmmProbabilities<QueryResult, GPXEntry>(timeSteps, spatialMetrics, temporalMetrics);
+        MostLikelySequence<QueryResult, GPXEntry> seq = Hmm.computeMostLikelySequence(probabilities, timeSteps.iterator());
 
         System.out.println(seq.isBroken);
         System.out.println(seq.sequence);
