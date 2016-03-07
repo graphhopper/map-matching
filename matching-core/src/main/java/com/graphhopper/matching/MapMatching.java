@@ -262,9 +262,8 @@ public class MapMatching {
                     realEdgeGpxExtensions.add(oneBucketGPXExtensions);
                     oneBucketGPXExtensions = new ArrayList<GPXExtension>();
                     realNodes.add(realNode);
-                    while (j < nodes.size()-1 && node >= nodeCount) {
+                    while (j < nodes.size()-1 && nodes.get(j+1) >= nodeCount) {
                         j++;
-                        node = nodes.get(j);
                     }
                 }
             }
