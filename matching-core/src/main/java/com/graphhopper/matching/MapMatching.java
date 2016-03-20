@@ -224,6 +224,7 @@ public class MapMatching {
         final TIntList nodes = new TIntArrayList();
         double distance = 0.0;
         long time = 0;
+        System.out.println("GPX points: " + gpxList.size());
         if (!seq.isBroken) {
             // TODO: assert that no two consecutive nodes are the same.
             // TODO: (if so, debounce.)
@@ -247,6 +248,13 @@ public class MapMatching {
                 gpxExtensions.add(Collections.singletonList(new GPXExtension(gpxList.get(j), nextQueryResult, j)));
                 queryResult = nextQueryResult;
             }
+
+            int nNMatchedPoints = 0;
+            for (List<GPXExtension> gpxExtension : gpxExtensions) {
+                nNMatchedPoints += gpxExtension.size();
+            }
+            System.out.println("Matched GPX points: "+nNMatchedPoints);
+
             System.out.println(nodes);
 
             final TIntList realNodes = new TIntArrayList();
@@ -294,15 +302,7 @@ public class MapMatching {
             int n1 = realNodes.get(0);
             for (int j=1; j<realNodes.size(); j++) {
                 int n2 = realNodes.get(j);
-//                EdgeIteratorState edge = GHUtility.getEdge(graph, n1, n2);
-                // TODO: I only want to get the edge, but the previous line gives me the wrong edge, which
-                // somehow doesn't know the street name. In fact, there seem to be several edges between
-                // the same pair of nodes. A multigraph.
-                List<EdgeIteratorState> edges = new Dijkstra(graph, encoder, weighting, traversalMode).calcPath(n1, n2).calcEdges();
-                if (edges.isEmpty()) {
-                    throw new RuntimeException("No edge from " + n1 + " to " + n2);
-                }
-                EdgeIteratorState edge = edges.get(0);
+                EdgeIteratorState edge = GHUtility.getEdge(graph, n1, n2);
                 edgeMatches.add(new EdgeMatch(edge, realEdgeGpxExtensions.get(j-1)));
                 n1 = n2;
             }
