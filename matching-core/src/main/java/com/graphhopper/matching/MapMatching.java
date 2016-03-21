@@ -31,10 +31,7 @@ import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
 import gnu.trove.map.hash.TIntObjectHashMap;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 
 /**
  * This class matches real world GPX entries to the digital road network stored
@@ -58,6 +55,7 @@ import java.util.List;
  * See http://en.wikipedia.org/wiki/Map_matching
  *
  * @author Peter Karich
+ * @author Michael Zilske
  */
 public class MapMatching {
 
@@ -80,17 +78,9 @@ public class MapMatching {
      */
     private double transitionProbabilityBeta = 0.00959442;
 
-
-    // we split the incoming list into smaller parts (hopefully) without loops
-    // later we'll detect loops and insert the correctly detected road recursivly
-    // see #1
-    private double separatedSearchDistance = 300;
     private int maxNodesToVisit = 500;
-    private final double maxSearchWeightMultiplier = 50;
     private final int nodeCount;
     private DistanceCalc distanceCalc = new DistancePlaneProjection();
-    private boolean forceRepair;
-    private boolean ignoreOneways;
     private Weighting weighting;
 
     private static final Comparator<QueryResult> CLOSEST_MATCH = new Comparator<QueryResult>() {
@@ -121,33 +111,12 @@ public class MapMatching {
         this.weighting = weighting;
     }
 
-    /**
-     * This methods forces ignoring oneway directions.
-     */
-    public void setIgnoreOneways(boolean ignoreOneways) {
-        this.ignoreOneways = ignoreOneways;
-    }
-
     public void setDistanceCalc(DistanceCalc distanceCalc) {
         this.distanceCalc = distanceCalc;
     }
 
-    /**
-     * Specify the length of the route parts to improve map matching in case of
-     * loops in meter. Use -1 if no route splitting should happen. Default is
-     * 500m
-     */
-    public MapMatching setSeparatedSearchDistance(int separatedSearchDistance) {
-        this.separatedSearchDistance = separatedSearchDistance;
-        return this;
-    }
-
     public void setMaxNodesToVisit(int maxNodesToVisit) {
         this.maxNodesToVisit = maxNodesToVisit;
-    }
-
-    public void setForceRepair(boolean forceRepair) {
-        this.forceRepair = forceRepair;
     }
 
     /**
@@ -160,6 +129,7 @@ public class MapMatching {
         EdgeFilter edgeFilter = new DefaultEdgeFilter(encoder);
         List<TimeStep<QueryResult, GPXEntry>> timeSteps = new ArrayList<TimeStep<QueryResult, GPXEntry>>();
         List<QueryResult> allQueryResults = new ArrayList<QueryResult>();
+        final Map<String, Path> paths = new HashMap<String, Path>();
         for (GPXEntry entry : gpxList) {
             List<QueryResult> qResults = locationIndex.findNClosest(entry.lat, entry.lon, edgeFilter);
             allQueryResults.addAll(qResults);
@@ -192,7 +162,9 @@ public class MapMatching {
                 QueryGraph queryGraph = new QueryGraph(graph);
                 queryGraph.lookup(sourcePosition, targetPosition);
                 Dijkstra dijkstra = new Dijkstra(queryGraph, encoder, weighting, traversalMode);
-                double distance = dijkstra.calcPath(sourcePosition.getClosestNode(), targetPosition.getClosestNode()).getDistance();
+                Path path = dijkstra.calcPath(sourcePosition.getClosestNode(), targetPosition.getClosestNode());
+                paths.put(hash(sourcePosition, targetPosition), path);
+                double distance = path.getDistance();
                 System.out.printf("Dist: %f\n", distance);
                 return distance;
             }
@@ -231,7 +203,7 @@ public class MapMatching {
             List<List<GPXExtension>> gpxExtensions = new ArrayList<List<GPXExtension>>();
             QueryResult queryResult = seq.sequence.get(0);
             nodes.add(queryResult.getClosestNode());
-            gpxExtensions.add(Collections.singletonList(new GPXExtension(gpxList.get(0), queryResult, 0)));
+            gpxExtensions.add(new ArrayList<GPXExtension>(Arrays.asList(new GPXExtension(gpxList.get(0), queryResult, 0))));
             for (int j=1; j<seq.sequence.size(); j++) {
                 QueryResult nextQueryResult = seq.sequence.get(j);
                 Dijkstra dijkstra = new Dijkstra(queryGraph, encoder, weighting, traversalMode);
@@ -242,13 +214,14 @@ public class MapMatching {
                 for (int k=1; k<tIntList.size(); ++k) {
                     nodes.add(tIntList.get(k));
                 }
-                for (int k=1; k<tIntList.size()-1; ++k) {
-                    gpxExtensions.add(Collections.<GPXExtension>emptyList());
+                for (int k=1; k<tIntList.size(); ++k) {
+                    gpxExtensions.add(new ArrayList<GPXExtension>());
                 }
-                gpxExtensions.add(Collections.singletonList(new GPXExtension(gpxList.get(j), nextQueryResult, j)));
+                gpxExtensions.get(gpxExtensions.size()-1).add(new GPXExtension(gpxList.get(j), nextQueryResult, j));
                 queryResult = nextQueryResult;
             }
-
+            System.out.println("Nodes: " + nodes.size());
+            System.out.println("GPX slots: " + gpxExtensions.size());
             int nNMatchedPoints = 0;
             for (List<GPXExtension> gpxExtension : gpxExtensions) {
                 nNMatchedPoints += gpxExtension.size();
@@ -262,40 +235,47 @@ public class MapMatching {
             List<List<GPXExtension>> realEdgeGpxExtensions = new ArrayList<List<GPXExtension>>();
             List<GPXExtension> oneBucketGPXExtensions = new ArrayList<GPXExtension>();
             for (int j=0; j<nodes.size(); ++j) {
-                List<GPXExtension> gpxExtensions1 = gpxExtensions.get(j);
-                oneBucketGPXExtensions.addAll(gpxExtensions1);
+                oneBucketGPXExtensions.addAll(gpxExtensions.get(j));
                 int node = nodes.get(j);
+                if (j>0 && node == nodes.get(j-1)) {
+                    throw new RuntimeException();
+                }
                 if (node < nodeCount) {
-                    if (realNodes.isEmpty() || realNodes.get(realNodes.size()-1) != node) {
-                        realEdgeGpxExtensions.add(oneBucketGPXExtensions);
-                        oneBucketGPXExtensions = new ArrayList<GPXExtension>();
-                        realNodes.add(node);
+                    if (realNodes.isEmpty() && j > 0 || (!realNodes.isEmpty()) && realNodes.get(realNodes.size()-1) == node) {
+                        // Verfolge zum anderen Ende, adde das andere Ende als realNode
+                        // und, wenn nicht am Anfang, eine *leere* GPX-Liste
+                        if (!realNodes.isEmpty()) {
+                            realEdgeGpxExtensions.add(new ArrayList<GPXExtension>());
+                        }
+                        EdgeIterator edgeIterator = explorer.setBaseNode(node);
+                        while (edgeIterator.next() && edgeIterator.getAdjNode() != nodes.get(j-1));
+                        int realNode = traverseToClosestRealAdj(explorer, edgeIterator);
+                        if ((!realNodes.isEmpty()) && realNode == realNodes.get(realNodes.size()-1)) {
+                            throw new RuntimeException();
+                        }
+                        realNodes.add(realNode);
+                        // Vielleicht könnte man die Punkte auch eher dem Hinweg als dem Rückweg
+                        // zuordnen, das wäre konsistenter mit der Abschlusskante.
+                        // Andererseits muss man vermutlich ohnehin eigentlich gerichtete Kanten unterscheiden.
                     }
-                } else if (!realNodes.isEmpty()) {
-                    EdgeIterator edgeIterator = explorer.setBaseNode(node);
-                    edgeIterator.next();
-                    if (edgeIterator.getAdjNode() == realNodes.get(realNodes.size()-1)) {
-                        edgeIterator.next();
-                    }
-                    int realNode = traverseToClosestRealAdj(explorer, edgeIterator);
                     realEdgeGpxExtensions.add(oneBucketGPXExtensions);
                     oneBucketGPXExtensions = new ArrayList<GPXExtension>();
-                    realNodes.add(realNode);
-                    while (j < nodes.size()-1 && nodes.get(j+1) >= nodeCount) {
-                        j++;
+                    if ((!realNodes.isEmpty()) && node == realNodes.get(realNodes.size()-1)) {
+                        throw new RuntimeException();
                     }
+                    realNodes.add(node);
                 }
             }
-
-            if (nodes.get(0) >= nodeCount) {
-                EdgeIterator edgeIterator = explorer.setBaseNode(nodes.get(0));
+            if (nodes.size() >= 2 && nodes.get(nodes.size()-1) >= nodeCount) {
+                EdgeIterator edgeIterator = explorer.setBaseNode(nodes.get(nodes.size()-1));
                 edgeIterator.next();
                 int realNode = traverseToClosestRealAdj(explorer, edgeIterator);
-                if (realNode == realNodes.get(0)) {
+                if (realNode == realNodes.get(realNodes.size()-1)) {
                     edgeIterator.next();
                     realNode = traverseToClosestRealAdj(explorer, edgeIterator);
                 }
-                realNodes.insert(0, realNode);
+                realNodes.add(realNode);
+                realEdgeGpxExtensions.add(oneBucketGPXExtensions);
             }
             System.out.println(realNodes);
 
@@ -303,6 +283,9 @@ public class MapMatching {
             for (int j=1; j<realNodes.size(); j++) {
                 int n2 = realNodes.get(j);
                 EdgeIteratorState edge = GHUtility.getEdge(graph, n1, n2);
+                if (edge == null) {
+                    throw new RuntimeException();
+                }
                 edgeMatches.add(new EdgeMatch(edge, realEdgeGpxExtensions.get(j-1)));
                 n1 = n2;
             }
@@ -328,6 +311,10 @@ public class MapMatching {
         matchResult.setGPXEntriesLength(gpxLength);
 
         return matchResult;
+    }
+
+    private String hash(QueryResult sourcePosition, QueryResult targetPosition) {
+        return sourcePosition.hashCode() + "_" + targetPosition.hashCode();
     }
 
     private boolean isVirtualNode(int node) {
@@ -364,88 +351,6 @@ public class MapMatching {
             }
         }
         throw new IllegalStateException("Cannot find adjacent edge " + edge);
-    }
-
-    // TODO instead of checking for edge duplicates check for missing matches
-    List<EdgeMatch> checkOrCleanup(List<EdgeMatch> inputList, boolean forceRepair) {
-        int prevNode = -1;
-        int prevEdge = -1;
-        List<String> errors = null;
-        List<EdgeMatch> repairedResult = null;
-        if (forceRepair) {
-            repairedResult = new ArrayList<EdgeMatch>(inputList.size());
-        } else {
-            errors = new ArrayList<String>();
-        }
-
-        for (int i = 0; i < inputList.size(); i++) {
-            EdgeMatch em = inputList.get(i);
-            EdgeIteratorState edge = em.getEdgeState();
-            String str = edge.getName() + ":" + edge.getBaseNode() + "->" + edge.getAdjNode();
-            if (prevEdge >= 0) {
-                if (edge.getEdge() == prevEdge) {
-                    if (forceRepair) {
-                        // in all cases skip current edge
-                        boolean hasNextEdge = i + 1 < inputList.size();
-                        if (hasNextEdge) {
-                            EdgeIteratorState nextEdge = inputList.get(i + 1).getEdgeState();
-                            // remove previous edge in case of a u-turn
-                            if (edge.getAdjNode() == nextEdge.getBaseNode()) {
-                                repairedResult.remove(repairedResult.size() - 1);
-                                if (!repairedResult.isEmpty()) {
-                                    em = repairedResult.get(repairedResult.size() - 1);
-                                    edge = em.getEdgeState();
-                                    prevEdge = edge.getEdge();
-                                    prevNode = edge.getAdjNode();
-                                } else {
-                                    prevEdge = -1;
-                                    prevNode = -1;
-                                }
-                            }
-                        }
-                        continue;
-                    } else {
-                        errors.add("duplicate edge:" + str);
-                    }
-                }
-            }
-
-            if (prevNode >= 0) {
-                if (edge.getBaseNode() != prevNode) {
-                    if (forceRepair) {
-                        if (edge.getAdjNode() != prevNode) {
-                            // both nodes inequal to prev adjacent node
-                            continue;
-                        } else {
-                            // really an orientation problem
-                            em = new EdgeMatch(edge = em.getEdgeState().detach(true), em.getGpxExtensions());
-                        }
-                    } else {
-                        errors.add("wrong orientation:" + str);
-                    }
-                }
-            }
-
-            if (forceRepair) {
-                repairedResult.add(em);
-            }
-
-            prevEdge = edge.getEdge();
-            prevNode = edge.getAdjNode();
-        }
-
-        if (!forceRepair && !errors.isEmpty()) {
-            String str = " Result contains illegal edges."
-                    + " Try to decrease the separatedSearchDistance (" + separatedSearchDistance + ")"
-                    + " or use forceRepair=true. Errors:";
-            throw new IllegalStateException(str + errors);
-        }
-
-        if (forceRepair) {
-            return repairedResult;
-        } else {
-            return inputList;
-        }
     }
 
     private static class MyPath extends Path {

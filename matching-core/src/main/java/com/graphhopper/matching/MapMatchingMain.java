@@ -73,9 +73,7 @@ public class MapMatchingMain {
             LocationIndexMatch locationIndex = new LocationIndexMatch(graph,
                     (LocationIndexTree) hopper.getLocationIndex(), gpxAccuracy);
             MapMatching mapMatching = new MapMatching(graph, locationIndex, firstEncoder);
-            mapMatching.setSeparatedSearchDistance(args.getInt("separatedSearchDistance", 500));
             mapMatching.setMaxNodesToVisit(args.getInt("maxNodesToVisit", 1000));
-            mapMatching.setForceRepair(args.getBool("forceRepair", false));
 
             // do the actual matching, get the GPX entries from a file or via stream
             String gpxLocation = args.get("gpx", "");

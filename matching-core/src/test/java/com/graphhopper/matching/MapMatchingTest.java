@@ -154,7 +154,6 @@ public class MapMatchingTest {
                 (LocationIndexTree) hopper.getLocationIndex());
 
         MapMatching mapMatching = new MapMatching(graph, locationIndex, encoder);
-        mapMatching.setSeparatedSearchDistance(30);
 
         // import sample where two GPX entries are on one edge which is longer than 'separatedSearchDistance' aways (66m)
         // https://graphhopper.com/maps/?point=51.359723%2C12.360108&point=51.358748%2C12.358798&point=51.358001%2C12.357597&point=51.358709%2C12.356511&layer=Lyrk
@@ -197,7 +196,6 @@ public class MapMatchingTest {
         LocationIndexMatch locationIndex = new LocationIndexMatch(graph,
                 (LocationIndexTree) hopper.getLocationIndex());
         MapMatching mapMatching = new MapMatching(graph, locationIndex, encoder);
-        mapMatching.setSeparatedSearchDistance(200);
         // TODO wrong direction?
         // https://graphhopper.com/maps/?point=51.342439%2C12.361615&point=51.343719%2C12.362784&point=51.343933%2C12.361781&point=51.342325%2C12.362607&layer=Lyrk
         List<GPXEntry> inputGPXEntries = new GPXFile().doImport("./src/test/resources/tour-with-loop.gpx").getEntries();
@@ -217,7 +215,6 @@ public class MapMatchingTest {
         LocationIndexMatch locationIndex = new LocationIndexMatch(graph,
                 (LocationIndexTree) hopper.getLocationIndex());
         MapMatching mapMatching = new MapMatching(graph, locationIndex, encoder);
-        mapMatching.setSeparatedSearchDistance(200);
 
         // https://graphhopper.com/maps/?point=51.343618%2C12.360772&point=51.34401%2C12.361776&point=51.343977%2C12.362886&point=51.344734%2C12.36236&point=51.345233%2C12.362055&layer=Lyrk
         List<GPXEntry> inputGPXEntries = new GPXFile().doImport("./src/test/resources/tour4-with-uturn.gpx").getEntries();
@@ -226,41 +223,6 @@ public class MapMatchingTest {
         assertEquals(Arrays.asList("Gustav-Adolf-Straße", "Gustav-Adolf-Straße",
                 "Funkenburgstraße", "Funkenburgstraße"),
                 fetchStreets(mr.getEdgeMatches()));
-    }
-
-    @Test
-    public void testCheckOrRepair() {
-        GraphHopperStorage graph = hopper.getGraphHopperStorage();
-        MapMatching mm = new MapMatching(graph, null, graph.getEncodingManager().getEncoder("car"));
-        List<EdgeMatch> list = new ArrayList<EdgeMatch>();
-
-        // System.out.println(GHUtility.getNeighbors(graph.createEdgeExplorer().setBaseNode(24594)));
-        EdgeFilter filter = new DefaultEdgeFilter(encoder);
-        int node0 = hopper.getLocationIndex().findClosest(51.354506642099615, 12.188172054026396, filter).getClosestNode();
-        int node24594 = hopper.getLocationIndex().findClosest(51.35358593658177, 12.188015033036807, filter).getClosestNode();
-        int node880 = hopper.getLocationIndex().findClosest(51.35171863477793, 12.18765554251497, filter).getClosestNode();
-
-        list.add(new EdgeMatch(GHUtility.getEdge(graph, node0, node24594), Collections.<GPXExtension>emptyList()));
-
-        // incorrect orientation
-        list.add(new EdgeMatch(GHUtility.getEdge(graph, node880, node24594), Collections.<GPXExtension>emptyList()));
-        // duplicate edge        
-        list.add(new EdgeMatch(GHUtility.getEdge(graph, node880, node24594), Collections.<GPXExtension>emptyList()));
-
-        try {
-            mm.checkOrCleanup(list, false);
-            assertTrue(false);
-        } catch (Exception ex) {
-
-        }
-
-        // repair
-        List<EdgeMatch> res = mm.checkOrCleanup(list, true);
-        // dup edge is removed
-        assertEquals(Arrays.asList("A 9", "A 9"), fetchStreets(res));
-
-        // now repaired list must not throw an exception
-        mm.checkOrCleanup(res, false);
     }
 
     @Test
@@ -280,13 +242,9 @@ public class MapMatchingTest {
         list.add(new EdgeMatch(GHUtility.getEdge(graph, node880, node24594), Collections.<GPXExtension>emptyList()));
         list.add(new EdgeMatch(GHUtility.getEdge(graph, node24594, node880), Collections.<GPXExtension>emptyList()));
 
-        // repair
-        List<EdgeMatch> res = mm.checkOrCleanup(list, true);
         // two edges are removed
-        assertEquals(Arrays.asList("A 9", "A 9"), fetchStreets(res));
+        assertEquals(Arrays.asList("A 9", "A 9"), fetchStreets(list));
 
-        // now repaired list must not throw an exception
-        mm.checkOrCleanup(res, false);
     }
 
     List<String> fetchStreets(List<EdgeMatch> emList) {
