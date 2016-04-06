@@ -206,6 +206,9 @@ public class MapMatching {
                 distance += path.getDistance();
                 time += path.getTime();
                 TIntList tIntList = path.calcNodes();
+                for (EdgeIteratorState edgeIteratorState : path.calcEdges()) {
+                    System.out.println("Wurst: " + virtualEdgesMap.get(edgeIteratorState.getEdge()));
+                }
                 for (int k=1; k<tIntList.size(); ++k) {
                     nodes.add(tIntList.get(k));
                 }
