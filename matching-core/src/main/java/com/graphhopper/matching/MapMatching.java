@@ -188,7 +188,7 @@ public class MapMatching {
         System.out.printf("%d -> %d\n", timeSteps.size(), seq.sequence.size());
 
         // every virtual edge maps to its real edge where the orientation is already correct!
-        TIntObjectHashMap<EdgeIteratorState> virtualEdgesMap = new TIntObjectHashMap<EdgeIteratorState>();
+        Map<String, EdgeIteratorState> virtualEdgesMap = new HashMap<String, EdgeIteratorState>();
 
         final EdgeExplorer explorer = queryGraph.createEdgeExplorer(edgeFilter);
 
@@ -198,105 +198,49 @@ public class MapMatching {
 
 
         List<EdgeMatch> edgeMatches = new ArrayList<EdgeMatch>();
-        final TIntList nodes = new TIntArrayList();
         double distance = 0.0;
         long time = 0;
         System.out.println("GPX points: " + gpxList.size());
         if (!seq.isBroken) {
-            // TODO: assert that no two consecutive nodes are the same.
-            // TODO: (if so, debounce.)
-            List<List<GPXExtension>> gpxExtensions = new ArrayList<List<GPXExtension>>();
+            EdgeIteratorState currentEdge = null;
+            List<GPXExtension> gpxExtensions = new ArrayList<GPXExtension>();
             QueryResult queryResult = seq.sequence.get(0);
-            nodes.add(queryResult.getClosestNode());
-            gpxExtensions.add(new ArrayList<GPXExtension>(Arrays.asList(new GPXExtension(gpxList.get(0), queryResult, 0))));
+            gpxExtensions.add(new GPXExtension(gpxList.get(0), queryResult, 0));
             for (int j=1; j<seq.sequence.size(); j++) {
                 QueryResult nextQueryResult = seq.sequence.get(j);
                 Path path = paths.get(hash(queryResult, nextQueryResult));
                 distance += path.getDistance();
                 time += path.getTime();
                 TIntList tIntList = path.calcNodes();
+                System.out.println("---");
+                for (int k=0; k<tIntList.size(); ++k) {
+                    System.out.print(tIntList.get(k) + " ");
+                }
+                System.out.println();
                 for (EdgeIteratorState edgeIteratorState : path.calcEdges()) {
-                    System.out.println("Wurst: " + virtualEdgesMap.get(edgeIteratorState.getEdge()));
-                }
-                for (int k=1; k<tIntList.size(); ++k) {
-                    nodes.add(tIntList.get(k));
-                }
-                for (int k=1; k<tIntList.size(); ++k) {
-                    gpxExtensions.add(new ArrayList<GPXExtension>());
-                }
-                gpxExtensions.get(gpxExtensions.size()-1).add(new GPXExtension(gpxList.get(j), nextQueryResult, j));
-                queryResult = nextQueryResult;
-            }
-            System.out.println("Nodes: " + nodes.size());
-            System.out.println("GPX slots: " + gpxExtensions.size());
-            int nNMatchedPoints = 0;
-            for (List<GPXExtension> gpxExtension : gpxExtensions) {
-                nNMatchedPoints += gpxExtension.size();
-            }
-            System.out.println("Matched GPX points: "+nNMatchedPoints);
-
-            System.out.println(nodes);
-
-            final TIntList realNodes = new TIntArrayList();
-            System.out.println("Knork: "+wurst);
-            List<List<GPXExtension>> realEdgeGpxExtensions = new ArrayList<List<GPXExtension>>();
-            List<GPXExtension> oneBucketGPXExtensions = new ArrayList<GPXExtension>();
-            for (int j=0; j<nodes.size(); ++j) {
-                oneBucketGPXExtensions.addAll(gpxExtensions.get(j));
-                int node = nodes.get(j);
-                if (j>0 && node == nodes.get(j-1)) {
-                    throw new RuntimeException();
-                }
-                if (node < nodeCount) {
-                    if (realNodes.isEmpty() && j > 0 || (!realNodes.isEmpty()) && realNodes.get(realNodes.size()-1) == node) {
-                        // Verfolge zum anderen Ende, adde das andere Ende als realNode
-                        // und, wenn nicht am Anfang, eine *leere* GPX-Liste
-                        if (!realNodes.isEmpty()) {
-                            realEdgeGpxExtensions.add(new ArrayList<GPXExtension>());
-                        }
-                        EdgeIterator edgeIterator = explorer.setBaseNode(node);
-                        while (edgeIterator.next() && edgeIterator.getAdjNode() != nodes.get(j-1));
-                        int realNode = traverseToClosestRealAdj(explorer, edgeIterator);
-                        if ((!realNodes.isEmpty()) && realNode == realNodes.get(realNodes.size()-1)) {
-                            throw new RuntimeException();
-                        }
-                        realNodes.add(realNode);
-                        // Vielleicht könnte man die Punkte auch eher dem Hinweg als dem Rückweg
-                        // zuordnen, das wäre konsistenter mit der Abschlusskante.
-                        // Andererseits muss man vermutlich ohnehin eigentlich gerichtete Kanten unterscheiden.
-                    }
-                    realEdgeGpxExtensions.add(oneBucketGPXExtensions);
-                    oneBucketGPXExtensions = new ArrayList<GPXExtension>();
-                    if ((!realNodes.isEmpty()) && node == realNodes.get(realNodes.size()-1)) {
+                    EdgeIteratorState directedRealEdge = resolveToRealEdge(virtualEdgesMap, edgeIteratorState);
+                    System.out.println("Wurst: " + directedRealEdge);
+                    if (directedRealEdge == null) {
                         throw new RuntimeException();
                     }
-                    realNodes.add(node);
+                    if (currentEdge == null || !equals(directedRealEdge, currentEdge)) {
+                        if (currentEdge != null) {
+                            EdgeMatch edgeMatch = new EdgeMatch(currentEdge, gpxExtensions);
+                            edgeMatches.add(edgeMatch);
+                            gpxExtensions = new ArrayList<GPXExtension>();
+                        }
+                        currentEdge = directedRealEdge;
+                    }
                 }
+                gpxExtensions.add(new GPXExtension(gpxList.get(j), nextQueryResult, j));
+                queryResult = nextQueryResult;
             }
-            if (nodes.size() >= 2 && nodes.get(nodes.size()-1) >= nodeCount) {
-                EdgeIterator edgeIterator = explorer.setBaseNode(nodes.get(nodes.size()-1));
-                edgeIterator.next();
-                int realNode = traverseToClosestRealAdj(explorer, edgeIterator);
-                if (realNode == realNodes.get(realNodes.size()-1)) {
-                    edgeIterator.next();
-                    realNode = traverseToClosestRealAdj(explorer, edgeIterator);
-                }
-                realNodes.add(realNode);
-                realEdgeGpxExtensions.add(oneBucketGPXExtensions);
+            EdgeMatch lastEdgeMatch = edgeMatches.get(edgeMatches.size() - 1);
+            if (!gpxExtensions.isEmpty() && !equals(currentEdge, lastEdgeMatch.getEdgeState())) {
+                edgeMatches.add(new EdgeMatch(currentEdge, gpxExtensions));
+            } else {
+                lastEdgeMatch.getGpxExtensions().addAll(gpxExtensions);
             }
-            System.out.println(realNodes);
-
-            int n1 = realNodes.get(0);
-            for (int j=1; j<realNodes.size(); j++) {
-                int n2 = realNodes.get(j);
-                EdgeIteratorState edge = GHUtility.getEdge(graph, n1, n2);
-                if (edge == null) {
-                    throw new RuntimeException();
-                }
-                edgeMatches.add(new EdgeMatch(edge, realEdgeGpxExtensions.get(j-1)));
-                n1 = n2;
-            }
-
         } else {
             throw new RuntimeException("Broken.");
         }
@@ -322,6 +266,20 @@ public class MapMatching {
         return matchResult;
     }
 
+    private boolean equals(EdgeIteratorState edge1, EdgeIteratorState edge2) {
+        return edge1.getEdge() == edge2.getEdge()
+                && edge1.getBaseNode() == edge2.getBaseNode()
+                && edge1.getAdjNode() == edge2.getAdjNode();
+    }
+
+    private EdgeIteratorState resolveToRealEdge(Map<String, EdgeIteratorState> virtualEdgesMap, EdgeIteratorState edgeIteratorState) {
+        if (isVirtualNode(edgeIteratorState.getBaseNode()) || isVirtualNode(edgeIteratorState.getAdjNode())) {
+            return virtualEdgesMap.get(virtualEdgesMapKey(edgeIteratorState));
+        } else {
+            return edgeIteratorState;
+        }
+    }
+
     private String hash(QueryResult sourcePosition, QueryResult targetPosition) {
         return sourcePosition.hashCode() + "_" + targetPosition.hashCode();
     }
@@ -333,20 +291,33 @@ public class MapMatching {
     /**
      * Fills the minFactorMap with weights for the virtual edges.
      */
-    private void fillVirtualEdges(TIntObjectHashMap<EdgeIteratorState> virtualEdgesMap,
+    private void fillVirtualEdges(Map<String, EdgeIteratorState> virtualEdgesMap,
                                   EdgeExplorer explorer, QueryResult qr) {
-        EdgeIterator iter = explorer.setBaseNode(qr.getClosestNode());
-        while (iter.next()) {
-            if (isVirtualNode(qr.getClosestNode())) {
-                if (traverseToClosestRealAdj(explorer, iter) == qr.getClosestEdge().getAdjNode()) {
-                    virtualEdgesMap.put(iter.getEdge(), qr.getClosestEdge());
+        if (isVirtualNode(qr.getClosestNode())) {
+            EdgeIterator iter = explorer.setBaseNode(qr.getClosestNode());
+            while (iter.next()) {
+                int node = traverseToClosestRealAdj(explorer, iter);
+                if (node == qr.getClosestEdge().getAdjNode()) {
+                    virtualEdgesMap.put(virtualEdgesMapKey(iter), qr.getClosestEdge().detach(false));
+                    virtualEdgesMap.put(reverseVirtualEdgesMapKey(iter), qr.getClosestEdge().detach(true));
+                } else if (node == qr.getClosestEdge().getBaseNode()) {
+                    virtualEdgesMap.put(virtualEdgesMapKey(iter), qr.getClosestEdge().detach(true));
+                    virtualEdgesMap.put(reverseVirtualEdgesMapKey(iter), qr.getClosestEdge().detach(false));
                 } else {
-                    virtualEdgesMap.put(iter.getEdge(), qr.getClosestEdge().detach(true));
+                    throw new RuntimeException();
                 }
             }
-
         }
     }
+
+    private String virtualEdgesMapKey(EdgeIteratorState iter) {
+        return iter.getBaseNode() + "-" + iter.getEdge() + "-" + iter.getAdjNode();
+    }
+
+    private String reverseVirtualEdgesMapKey(EdgeIteratorState iter) {
+        return iter.getAdjNode() + "-" + iter.getEdge() + "-" + iter.getBaseNode();
+    }
+
 
     private int traverseToClosestRealAdj(EdgeExplorer explorer, EdgeIteratorState edge) {
         if (!isVirtualNode(edge.getAdjNode())) {
