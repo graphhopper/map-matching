@@ -145,6 +145,8 @@ public class MapMatching {
                 return deltaTs;
             }
         };
+        final QueryGraph queryGraph = new QueryGraph(graph);
+        queryGraph.lookup(allQueryResults);
         SpatialMetrics<QueryResult, GPXEntry> spatialMetrics = new SpatialMetrics<QueryResult, GPXEntry>() {
             @Override
             public double measurementDistance(QueryResult roadPosition, GPXEntry measurement) {
@@ -159,7 +161,6 @@ public class MapMatching {
             }
             @Override
             public Double routeLength(QueryResult sourcePosition, QueryResult targetPosition) {
-                QueryGraph queryGraph = new QueryGraph(graph);
                 queryGraph.lookup(sourcePosition, targetPosition);
                 Dijkstra dijkstra = new Dijkstra(queryGraph, encoder, weighting, traversalMode);
                 Path path = dijkstra.calcPath(sourcePosition.getClosestNode(), targetPosition.getClosestNode());
@@ -179,9 +180,6 @@ public class MapMatching {
 
         // every virtual edge maps to its real edge where the orientation is already correct!
         TIntObjectHashMap<EdgeIteratorState> virtualEdgesMap = new TIntObjectHashMap<EdgeIteratorState>();
-
-        QueryGraph queryGraph = new QueryGraph(graph);
-        queryGraph.lookup(allQueryResults);
 
         final EdgeExplorer explorer = queryGraph.createEdgeExplorer(edgeFilter);
 
