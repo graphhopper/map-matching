@@ -206,8 +206,7 @@ public class MapMatching {
             gpxExtensions.add(new ArrayList<GPXExtension>(Arrays.asList(new GPXExtension(gpxList.get(0), queryResult, 0))));
             for (int j=1; j<seq.sequence.size(); j++) {
                 QueryResult nextQueryResult = seq.sequence.get(j);
-                Dijkstra dijkstra = new Dijkstra(queryGraph, encoder, weighting, traversalMode);
-                Path path = dijkstra.calcPath(queryResult.getClosestNode(), nextQueryResult.getClosestNode());
+                Path path = paths.get(hash(queryResult, nextQueryResult));
                 distance += path.getDistance();
                 time += path.getTime();
                 TIntList tIntList = path.calcNodes();
