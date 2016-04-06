@@ -32,7 +32,9 @@ import java.util.List;
 @SuppressWarnings("serial")
 public class MapMatchingUI extends UI {
 
-    enum ContainerProperties {
+	private GraphHopperStorage graph;
+
+	enum ContainerProperties {
         IDX, FROM, TO;
     }
 
@@ -52,7 +54,7 @@ public class MapMatchingUI extends UI {
 
     @Override
     protected void init(VaadinRequest request) {
-        String[] s = new String[]{"action=match", "gpx=/Users/michaelzilske/wurst/peter/tmp/1001.gpx"};
+        String[] s = new String[]{"action=match", "gpx=/Users/michaelzilske/wurst/peter-original/tmp/1003.gpx"};
         CmdArgs args = CmdArgs.read(s);
         args.put("graph.location", "../graph-cache");
 
@@ -61,7 +63,7 @@ public class MapMatchingUI extends UI {
         logger.info("loading graph from cache");
         hopper.load("../graph-cache");
         FlagEncoder firstEncoder = hopper.getEncodingManager().fetchEdgeEncoders().get(0);
-        GraphHopperStorage graph = hopper.getGraphHopperStorage();
+		graph = hopper.getGraphHopperStorage();
 
         int gpxAccuracy = args.getInt("gpxAccuracy", 15);
         String instructions = args.get("instructions", "");
@@ -96,11 +98,11 @@ public class MapMatchingUI extends UI {
         importSW.start();
         List<GPXEntry> inputGPXEntries = new GPXFile().doImport(gpxFile.getAbsolutePath()).getEntries();
         importSW.stop();
-        LLayerGroup input = new LLayerGroup();
-        for (GPXEntry inputGPXEntry : inputGPXEntries) {
-            input.addComponent(new LCircleMarker(inputGPXEntry.getLat(), inputGPXEntry.getLon(), 3.0));
-        }
-        map.addOverlay(input, "Input");
+//        LLayerGroup input = new LLayerGroup();
+//        for (GPXEntry inputGPXEntry : inputGPXEntries) {
+//            input.addComponent(new LCircleMarker(inputGPXEntry.getLat(), inputGPXEntry.getLon(), 3.0));
+//        }
+//        map.addOverlay(input, "Input");
         matchSW.start();
         final MatchResult mr = mapMatching.doWork(inputGPXEntries);
         matchSW.stop();
@@ -164,7 +166,11 @@ public class MapMatchingUI extends UI {
 				c.addClickListener(new LeafletClickListener() {
 					@Override
 					public void onClick(LeafletClickEvent leafletClickEvent) {
-						System.out.println(nodeIdx+ " " + gpxExtension.getQueryResult().toString() + " " + gpxExtension) ;
+						System.out.println(nodeIdx+ " " + gpxExtension.getQueryResult().toString() + " " + gpxExtension);
+						EdgeIterator iter = graph.createEdgeExplorer().setBaseNode(gpxExtension.getQueryResult().getClosestEdge().getBaseNode());
+						while(iter.next()) {
+							System.out.println(iter.getAdjNode());
+						}
 					}
 				});
 				originLayer.addComponent(c);

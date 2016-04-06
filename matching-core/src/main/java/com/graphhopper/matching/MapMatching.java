@@ -68,7 +68,7 @@ public class MapMatching {
      * Standard deviation of the normal distribution [m] used for modeling the GPS error taken from
      * Newson&Krumm.
      */
-    private double measurementErrorSigma = 10.07;
+    private double measurementErrorSigma = 1.0;
 
     /**
      * Beta parameter of the exponential distribution for modeling transition probabilities.
@@ -290,6 +290,8 @@ public class MapMatching {
                 n1 = n2;
             }
 
+        } else {
+            throw new RuntimeException("Broken.");
         }
         System.out.println(edgeMatches);
         MatchResult matchResult = new MatchResult(edgeMatches);

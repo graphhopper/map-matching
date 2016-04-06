@@ -17,42 +17,26 @@
  */
 package com.graphhopper.matching.http;
 
-import com.graphhopper.PathWrapper;
 import com.graphhopper.GHResponse;
 import com.graphhopper.GraphHopper;
+import com.graphhopper.PathWrapper;
 import com.graphhopper.http.GraphHopperServlet;
 import com.graphhopper.http.RouteSerializer;
-import com.graphhopper.matching.EdgeMatch;
-import com.graphhopper.matching.GPXFile;
-import com.graphhopper.matching.LocationIndexMatch;
-import com.graphhopper.matching.MapMatching;
-import com.graphhopper.matching.MatchResult;
+import com.graphhopper.matching.*;
 import com.graphhopper.routing.Path;
 import com.graphhopper.routing.util.FlagEncoder;
-import com.graphhopper.util.EdgeIteratorState;
-import com.graphhopper.util.GHUtility;
-import com.graphhopper.util.Helper;
-import com.graphhopper.util.PathMerger;
-import com.graphhopper.util.StopWatch;
-import com.graphhopper.util.Translation;
-import com.graphhopper.util.TranslationMap;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import com.graphhopper.util.*;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import javax.inject.Inject;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.*;
 
 import static javax.servlet.http.HttpServletResponse.SC_BAD_REQUEST;
-
-import org.json.JSONArray;
-import org.json.JSONObject;
 
 /**
  *
@@ -114,9 +98,7 @@ public class MatchServlet extends GraphHopperServlet {
         try {
             FlagEncoder encoder = hopper.getEncodingManager().getEncoder(vehicle);
             MapMatching matching = new MapMatching(hopper.getGraphHopperStorage(), locationIndexMatch, encoder);
-            matching.setForceRepair(forceRepair);
             matching.setMaxNodesToVisit(maxNodesToVisit);
-            matching.setSeparatedSearchDistance(separatedSearchDistance);
 
             matchRsp = matching.doWork(gpxFile.getEntries());
 
