@@ -68,7 +68,9 @@ public class MapMatching {
      * Standard deviation of the normal distribution [m] used for modeling the GPS error taken from
      * Newson&Krumm.
      */
-    private double measurementErrorSigma = 1.0;
+    private double measurementErrorSigma = 10.0;
+
+    int wurst=0;
 
     /**
      * Beta parameter of the exponential distribution for modeling transition probabilities.
@@ -161,12 +163,19 @@ public class MapMatching {
             }
             @Override
             public Double routeLength(QueryResult sourcePosition, QueryResult targetPosition) {
-                queryGraph.lookup(sourcePosition, targetPosition);
+                ++wurst; // 83129
+                if (wurst % 100 == 0) {
+                    System.out.println(wurst);
+                }
+//                final QueryGraph queryGraph = new QueryGraph(graph);
+//                queryGraph.lookup(sourcePosition, targetPosition);
+
                 Dijkstra dijkstra = new Dijkstra(queryGraph, encoder, weighting, traversalMode);
                 Path path = dijkstra.calcPath(sourcePosition.getClosestNode(), targetPosition.getClosestNode());
                 paths.put(hash(sourcePosition, targetPosition), path);
                 double distance = path.getDistance();
                 System.out.printf("Dist: %f\n", distance);
+//                return Math.max(distance, distanceCalc.calcDist(sourcePosition.getQueryPoint().getLat(), sourcePosition.getQueryPoint().getLon(), targetPosition.getQueryPoint().getLat(), targetPosition.getQueryPoint().getLon()))+1;
                 return distance;
             }
         };
@@ -229,7 +238,7 @@ public class MapMatching {
             System.out.println(nodes);
 
             final TIntList realNodes = new TIntArrayList();
-
+            System.out.println("Knork: "+wurst);
             List<List<GPXExtension>> realEdgeGpxExtensions = new ArrayList<List<GPXExtension>>();
             List<GPXExtension> oneBucketGPXExtensions = new ArrayList<GPXExtension>();
             for (int j=0; j<nodes.size(); ++j) {
