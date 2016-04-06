@@ -183,10 +183,8 @@ public class MapMatching {
 
         final EdgeExplorer explorer = queryGraph.createEdgeExplorer(edgeFilter);
 
-        for (TimeStep<QueryResult, GPXEntry> timeStep : timeSteps) {
-            for (QueryResult candidate : timeStep.candidates) {
-                fillVirtualEdges(virtualEdgesMap, explorer, candidate);
-            }
+        for (QueryResult candidate : allQueryResults) {
+            fillVirtualEdges(virtualEdgesMap, explorer, candidate);
         }
 
 
