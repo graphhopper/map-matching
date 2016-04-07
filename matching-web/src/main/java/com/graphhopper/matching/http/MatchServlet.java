@@ -98,7 +98,6 @@ public class MatchServlet extends GraphHopperServlet {
         try {
             FlagEncoder encoder = hopper.getEncodingManager().getEncoder(vehicle);
             MapMatching matching = new MapMatching(hopper.getGraphHopperStorage(), locationIndexMatch, encoder);
-            matching.setMaxNodesToVisit(maxNodesToVisit);
 
             matchRsp = matching.doWork(gpxFile.getEntries());
 

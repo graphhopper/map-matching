@@ -71,7 +71,6 @@ public class MapMatchingUI extends UI {
         LocationIndexMatch locationIndex = new LocationIndexMatch(graph,
                 (LocationIndexTree) hopper.getLocationIndex(), gpxAccuracy);
         MapMatching mapMatching = new MapMatching(graph, locationIndex, firstEncoder);
-        mapMatching.setMaxNodesToVisit(args.getInt("maxNodesToVisit", 1000));
 
         // do the actual matching, get the GPX entries from a file or via stream
         String gpxLocation = args.get("gpx", "");
@@ -80,12 +79,12 @@ public class MapMatchingUI extends UI {
         StopWatch matchSW = new StopWatch();
 
         container = new HierarchicalContainer();
-        container.addContainerProperty(ContainerProperties.FROM, Integer.class, 0);
+		container.addContainerProperty(ContainerProperties.IDX, Integer.class, 0);
+		container.addContainerProperty(ContainerProperties.FROM, Integer.class, 0);
         container.addContainerProperty(ContainerProperties.TO, Integer.class, 0);
-        container.addContainerProperty(ContainerProperties.IDX, Integer.class, 0);
 
         Table table = new Table("Links", container);
-        table.setColumnHeader(ContainerProperties.IDX, "Number of sub-geometries");
+        table.setColumnHeader(ContainerProperties.IDX, "Index");
         table.setColumnHeader(ContainerProperties.FROM, "From");
         table.setColumnHeader(ContainerProperties.TO, "To");
 
@@ -98,11 +97,11 @@ public class MapMatchingUI extends UI {
         importSW.start();
         List<GPXEntry> inputGPXEntries = new GPXFile().doImport(gpxFile.getAbsolutePath()).getEntries();
         importSW.stop();
-//        LLayerGroup input = new LLayerGroup();
-//        for (GPXEntry inputGPXEntry : inputGPXEntries) {
-//            input.addComponent(new LCircleMarker(inputGPXEntry.getLat(), inputGPXEntry.getLon(), 3.0));
-//        }
-//        map.addOverlay(input, "Input");
+        LLayerGroup input = new LLayerGroup();
+        for (GPXEntry inputGPXEntry : inputGPXEntries) {
+            input.addComponent(new LCircleMarker(inputGPXEntry.getLat(), inputGPXEntry.getLon(), 3.0));
+        }
+        map.addOverlay(input, "Input");
         matchSW.start();
         final MatchResult mr = mapMatching.doWork(inputGPXEntries);
         matchSW.stop();
