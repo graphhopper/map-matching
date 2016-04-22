@@ -174,8 +174,8 @@ public class MapMatching {
                 = new MapMatchingHmmProbabilities<GPXExtension, GPXEntry>(timeSteps, spatialMetrics, temporalMetrics, measurementErrorSigma, transitionProbabilityBeta);
         MostLikelySequence<GPXExtension, GPXEntry> seq = Hmm.computeMostLikelySequence(probabilities, timeSteps.iterator());
 
-        System.out.println(seq.isBroken);
-        System.out.println(seq.sequence);
+        // System.out.println(seq.isBroken);
+        // System.out.println(seq.sequence);
         // System.out.printf("%d -> %d\n", timeSteps.size(), seq.sequence.size());
 
         // every virtual edge maps to its real edge where the orientation is already correct!

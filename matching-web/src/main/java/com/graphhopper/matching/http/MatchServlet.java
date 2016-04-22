@@ -80,13 +80,9 @@ public class MatchServlet extends GraphHopperServlet {
         boolean pointsEncoded = getBooleanParam(httpReq, "points_encoded", true);
         boolean enableInstructions = writeGPX || getBooleanParam(httpReq, "instructions", true);
         boolean enableElevation = getBooleanParam(httpReq, "elevation", false);
-        boolean forceRepair = getBooleanParam(httpReq, "force_repair", false);
 
         // TODO export OSM IDs instead, use https://github.com/karussell/graphhopper-osm-id-mapping
         boolean enableTraversalKeys = getBooleanParam(httpReq, "traversal_keys", false);
-
-        int maxNodesToVisit = (int) getLongParam(httpReq, "max_nodes_to_visit", 500);
-        int separatedSearchDistance = (int) getLongParam(httpReq, "separated_search_distance", 300);
 
         String vehicle = getParam(httpReq, "vehicle", "car");
 
@@ -110,8 +106,10 @@ public class MatchServlet extends GraphHopperServlet {
             matchGHRsp.addError(ex);
         }
 
-        logger.info(httpReq.getQueryString() + ", " + infoStr + ", took:" + sw.stop().getSeconds() + ", entries:" + gpxFile.getEntries().size() + ", " + matchGHRsp.getDebugInfo());
+        float took = sw.stop().getSeconds();
+        logger.info(httpReq.getQueryString() + ", " + infoStr + ", took:" + took + ", entries:" + gpxFile.getEntries().size() + ", " + matchGHRsp.getDebugInfo());
 
+        httpRes.setHeader("X-GH-Took", "" + Math.round(took * 1000));
         if (EXTENDED_JSON_FORMAT.equals(format)) {
             if (matchGHRsp.hasErrors()) {
                 httpRes.setStatus(SC_BAD_REQUEST);

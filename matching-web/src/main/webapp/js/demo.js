@@ -53,6 +53,15 @@ function setup(map, mmClient) {
                         properties: {style: {color: "#00cc33", weight: 6, opacity: 0.4}}
                     };
                     routeLayer.addData(geojsonFeature);
+
+                    if (matchedPath.bbox) {
+                        var minLon = matchedPath.bbox[0];
+                        var minLat = matchedPath.bbox[1];
+                        var maxLon = matchedPath.bbox[2];
+                        var maxLat = matchedPath.bbox[3];
+                        var tmpB = new L.LatLngBounds(new L.LatLng(minLat, minLon), new L.LatLng(maxLat, maxLon));
+                        map.fitBounds(tmpB);
+                    }
                 } else {
                     $("#map-matching-error").text("unknown error");
                 }
