@@ -129,7 +129,7 @@ public class MapMatching {
                 for (QueryResult candidate : candidates) {
                     gpxExtensions.add(new GPXExtension(entry, candidate, indexGPX));
                 }
-                System.out.printf("Candidates: %d\n", candidates.size());
+                // System.out.printf("Candidates: %d\n", candidates.size());
                 TimeStep<GPXExtension, GPXEntry> timeStep = new TimeStep<GPXExtension, GPXEntry>(entry, gpxExtensions);
                 timeSteps.add(timeStep);
                 previous = entry;
@@ -140,7 +140,7 @@ public class MapMatching {
             @Override
             public double timeDifference(GPXEntry m1, GPXEntry m2) {
                 double deltaTs = (m2.getTime() - m1.getTime()) / 1000.0;
-                System.out.printf("Time diff: %.2f\n", deltaTs);
+                // System.out.printf("Time diff: %.2f\n", deltaTs);
                 return deltaTs;
             }
         };
@@ -149,14 +149,14 @@ public class MapMatching {
         SpatialMetrics<GPXExtension, GPXEntry> spatialMetrics = new SpatialMetrics<GPXExtension, GPXEntry>() {
             @Override
             public double measurementDistance(GPXExtension roadPosition, GPXEntry measurement) {
-                System.out.printf("Measurement dist: %f\n", roadPosition.getQueryResult().getQueryDistance());
+                // System.out.printf("Measurement dist: %f\n", roadPosition.getQueryResult().getQueryDistance());
                 return roadPosition.getQueryResult().getQueryDistance();
             }
 
             @Override
             public double linearDistance(GPXEntry formerMeasurement, GPXEntry laterMeasurement) {
                 double v = distanceCalc.calcDist(formerMeasurement.lat, formerMeasurement.lon, laterMeasurement.lat, laterMeasurement.lon);
-                System.out.printf("Linear dist: %f\n", v);
+                // System.out.printf("Linear dist: %f\n", v);
                 return v;
             }
 
@@ -166,7 +166,7 @@ public class MapMatching {
                 Path path = dijkstra.calcPath(sourcePosition.getQueryResult().getClosestNode(), targetPosition.getQueryResult().getClosestNode());
                 paths.put(hash(sourcePosition.getQueryResult(), targetPosition.getQueryResult()), path);
                 double distance = path.getDistance();
-                System.out.printf("Dist: %f\n", distance);
+                // System.out.printf("Dist: %f\n", distance);
                 return distance;
             }
         };
@@ -176,7 +176,7 @@ public class MapMatching {
 
         System.out.println(seq.isBroken);
         System.out.println(seq.sequence);
-        System.out.printf("%d -> %d\n", timeSteps.size(), seq.sequence.size());
+        // System.out.printf("%d -> %d\n", timeSteps.size(), seq.sequence.size());
 
         // every virtual edge maps to its real edge where the orientation is already correct!
         Map<String, EdgeIteratorState> virtualEdgesMap = new HashMap<String, EdgeIteratorState>();
@@ -188,7 +188,7 @@ public class MapMatching {
         List<EdgeMatch> edgeMatches = new ArrayList<EdgeMatch>();
         double distance = 0.0;
         long time = 0;
-        System.out.println("GPX points: " + gpxList.size());
+        // System.out.println("GPX points: " + gpxList.size());
         if (!seq.isBroken) {
             EdgeIteratorState currentEdge = null;
             List<GPXExtension> gpxExtensions = new ArrayList<GPXExtension>();
