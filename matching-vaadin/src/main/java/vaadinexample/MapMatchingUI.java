@@ -54,7 +54,7 @@ public class MapMatchingUI extends UI {
 
     @Override
     protected void init(VaadinRequest request) {
-        String[] s = new String[]{"action=match", "gpx=/Users/michaelzilske/wurst/peter-original/tmp/1001.gpx"};
+        String[] s = new String[]{"action=match", "gpx=/home/peterk/Downloads/misc/tmp/1001.gpx"};
         CmdArgs args = CmdArgs.read(s);
         args.put("graph.location", "../graph-cache");
 

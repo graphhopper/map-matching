@@ -65,15 +65,16 @@ public class MapMatching {
     private final TraversalMode traversalMode;
 
     /**
-     * Standard deviation of the normal distribution [m] used for modeling the GPS error taken from
-     * Newson&Krumm.
+     * Standard deviation of the normal distribution [m] used for modeling the
+     * GPS error taken from Newson&Krumm.
      */
     private double measurementErrorSigma = 50.0;
 
     /**
-     * Beta parameter of the exponential distribution for modeling transition probabilities.
-     * Empirically computed from the Microsoft ground truth data for shortest route lengths and
-     * 60 s sampling interval but also works for other sampling intervals.
+     * Beta parameter of the exponential distribution for modeling transition
+     * probabilities. Empirically computed from the Microsoft ground truth data
+     * for shortest route lengths and 60 s sampling interval but also works for
+     * other sampling intervals.
      *
      */
     private double transitionProbabilityBeta = 0.00959442;
@@ -119,21 +120,21 @@ public class MapMatching {
         List<QueryResult> allCandidates = new ArrayList<QueryResult>();
         final Map<String, Path> paths = new HashMap<String, Path>();
         GPXEntry previous = null;
-        int iGpx = 0;
+        int indexGPX = 0;
         for (GPXEntry entry : gpxList) {
-            if (previous == null || distanceCalc.calcDist(previous.getLat(), previous.getLon(), entry.getLat(), entry.getLon()) > 2*measurementErrorSigma) {
+            if (previous == null || distanceCalc.calcDist(previous.getLat(), previous.getLon(), entry.getLat(), entry.getLon()) > 2 * measurementErrorSigma) {
                 List<QueryResult> candidates = locationIndex.findNClosest(entry.lat, entry.lon, edgeFilter);
                 allCandidates.addAll(candidates);
                 List<GPXExtension> gpxExtensions = new ArrayList<GPXExtension>();
                 for (QueryResult candidate : candidates) {
-                    gpxExtensions.add(new GPXExtension(entry, candidate, iGpx));
+                    gpxExtensions.add(new GPXExtension(entry, candidate, indexGPX));
                 }
                 System.out.printf("Candidates: %d\n", candidates.size());
                 TimeStep<GPXExtension, GPXEntry> timeStep = new TimeStep<GPXExtension, GPXEntry>(entry, gpxExtensions);
                 timeSteps.add(timeStep);
                 previous = entry;
             }
-            iGpx++;
+            indexGPX++;
         }
         TemporalMetrics<GPXEntry> temporalMetrics = new TemporalMetrics<GPXEntry>() {
             @Override
@@ -151,12 +152,14 @@ public class MapMatching {
                 System.out.printf("Measurement dist: %f\n", roadPosition.getQueryResult().getQueryDistance());
                 return roadPosition.getQueryResult().getQueryDistance();
             }
+
             @Override
             public double linearDistance(GPXEntry formerMeasurement, GPXEntry laterMeasurement) {
                 double v = distanceCalc.calcDist(formerMeasurement.lat, formerMeasurement.lon, laterMeasurement.lat, laterMeasurement.lon);
                 System.out.printf("Linear dist: %f\n", v);
                 return v;
             }
+
             @Override
             public Double routeLength(GPXExtension sourcePosition, GPXExtension targetPosition) {
                 Dijkstra dijkstra = new Dijkstra(queryGraph, encoder, weighting, traversalMode);
@@ -167,8 +170,8 @@ public class MapMatching {
                 return distance;
             }
         };
-        MapMatchingHmmProbabilities<GPXExtension, GPXEntry> probabilities =
-                new MapMatchingHmmProbabilities<GPXExtension, GPXEntry>(timeSteps, spatialMetrics, temporalMetrics, measurementErrorSigma, transitionProbabilityBeta);
+        MapMatchingHmmProbabilities<GPXExtension, GPXEntry> probabilities
+                = new MapMatchingHmmProbabilities<GPXExtension, GPXEntry>(timeSteps, spatialMetrics, temporalMetrics, measurementErrorSigma, transitionProbabilityBeta);
         MostLikelySequence<GPXExtension, GPXEntry> seq = Hmm.computeMostLikelySequence(probabilities, timeSteps.iterator());
 
         System.out.println(seq.isBroken);
@@ -191,7 +194,7 @@ public class MapMatching {
             List<GPXExtension> gpxExtensions = new ArrayList<GPXExtension>();
             GPXExtension queryResult = seq.sequence.get(0);
             gpxExtensions.add(queryResult);
-            for (int j=1; j<seq.sequence.size(); j++) {
+            for (int j = 1; j < seq.sequence.size(); j++) {
                 GPXExtension nextQueryResult = seq.sequence.get(j);
                 Path path = paths.get(hash(queryResult.getQueryResult(), nextQueryResult.getQueryResult()));
                 distance += path.getDistance();
@@ -220,12 +223,11 @@ public class MapMatching {
                 lastEdgeMatch.getGpxExtensions().addAll(gpxExtensions);
             }
         } else {
-            throw new RuntimeException("Broken.");
+            throw new RuntimeException("Sequence is broken for GPX with " + gpxList.size() + " points");
         }
         MatchResult matchResult = new MatchResult(edgeMatches);
         matchResult.setMatchMillis(time);
         matchResult.setMatchLength(distance);
-
 
         //////// Calculate stats to determine quality of matching //////// 
         double gpxLength = 0;
@@ -236,7 +238,7 @@ public class MapMatching {
             prevEntry = entry;
         }
 
-        long gpxMillis = gpxList.get(gpxList.size() - 1).getTime()- gpxList.get(0).getTime();
+        long gpxMillis = gpxList.get(gpxList.size() - 1).getTime() - gpxList.get(0).getTime();
         matchResult.setGPXEntriesMillis(gpxMillis);
         matchResult.setGPXEntriesLength(gpxLength);
 
@@ -269,7 +271,7 @@ public class MapMatching {
      * Fills the minFactorMap with weights for the virtual edges.
      */
     private void fillVirtualEdges(Map<String, EdgeIteratorState> virtualEdgesMap,
-                                  EdgeExplorer explorer, QueryResult qr) {
+            EdgeExplorer explorer, QueryResult qr) {
         if (isVirtualNode(qr.getClosestNode())) {
             EdgeIterator iter = explorer.setBaseNode(qr.getClosestNode());
             while (iter.next()) {
@@ -294,7 +296,6 @@ public class MapMatching {
     private String reverseVirtualEdgesMapKey(EdgeIteratorState iter) {
         return iter.getAdjNode() + "-" + iter.getEdge() + "-" + iter.getBaseNode();
     }
-
 
     private int traverseToClosestRealAdj(EdgeExplorer explorer, EdgeIteratorState edge) {
         if (!isVirtualNode(edge.getAdjNode())) {
