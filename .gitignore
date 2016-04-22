@@ -6,5 +6,8 @@ test.gpx
 graph-cache/
 nbactions.xml
 *pbf
-.idea
-*.iml
+.idea/
+*iml
+.settings/
+.classpath
+.project
