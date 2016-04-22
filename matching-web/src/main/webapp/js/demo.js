@@ -40,6 +40,7 @@ function setup(map, mmClient) {
             routeLayer.addData(pathOriginal);
 
             $("#map-matching-response").text("calculate route match ...");
+            $("#map-matching-error").text("");
 
             mmClient.doRequest(content, function (json) {
                 if (json.message) {

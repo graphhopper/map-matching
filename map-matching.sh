@@ -16,7 +16,7 @@ if [ "$1" = "action=start-server" ]; then
     set_jar_path
   fi
   
-  ARGS="graph.location=./graph-cache"
+  ARGS="graph.location=./graph-cache jetty.resourcebase=matching-web/src/main/webapp"
   
 elif [ "$1" = "action=test" ]; then
 
