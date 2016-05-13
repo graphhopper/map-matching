@@ -18,6 +18,8 @@
 package com.graphhopper.matching;
 
 import com.graphhopper.util.EdgeIteratorState;
+import com.graphhopper.util.PointList;
+
 import java.util.List;
 
 /**
@@ -28,9 +30,11 @@ public class EdgeMatch {
 
     private final EdgeIteratorState edgeState;
     private final List<GPXExtension> gpxExtensions;
+    private final PointList wayGeometry;
 
-    public EdgeMatch(EdgeIteratorState edgeState, List<GPXExtension> gpxExtension) {
+    public EdgeMatch(EdgeIteratorState edgeState, List<GPXExtension> gpxExtension, PointList wayGeometry) {
         this.edgeState = edgeState;
+        this.wayGeometry = wayGeometry;
 
         if (edgeState == null) {
             throw new IllegalStateException("Cannot fetch null EdgeState");
@@ -40,6 +44,10 @@ public class EdgeMatch {
         if (this.gpxExtensions == null) {
             throw new IllegalStateException("extension list cannot be null");
         }
+    }
+
+    public EdgeMatch(EdgeIteratorState edgeState, List<GPXExtension> gpxExtension){
+        this(edgeState, gpxExtension, null);
     }
 
     public boolean isEmpty() {
@@ -66,6 +74,13 @@ public class EdgeMatch {
             }
         }
         return min;
+    }
+
+    public PointList getWayGeometry() {
+        if(wayGeometry != null)
+            return wayGeometry;
+        else
+            return edgeState.fetchWayGeometry(0);
     }
 
     @Override

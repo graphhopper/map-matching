@@ -187,12 +187,6 @@ public class MapMatching {
             List<EdgeMatch> result = subMatch.getEdgeMatches();
             matchResult.setMatchLength(matchResult.getMatchLength() + subMatch.getMatchLength());
             matchResult.setMatchMillis(matchResult.getMatchMillis() + subMatch.getMatchMillis());
-            if (addStartAndEndWayGeometry && (separatedListStartIndex == 0)){
-                matchResult.setGeometryToFirstTowernode(subMatch.getGeometryToFirstTowernode());
-            }
-            if (addStartAndEndWayGeometry && doEnd){
-                matchResult.setGeometryToLastGPXPoint(subMatch.getGeometryToLastGPXPoint());
-            }
 
             // an error should never occur
             result = checkOrCleanup(result, false);
@@ -421,8 +415,8 @@ public class MapMatching {
         }
 
         //Save the way geometry before we remove the virtualNodes
-        PointList wayGeometryToFirstTowerNode = new PointList();
-        PointList wayGeometryToLastGPXPoint = new PointList();
+        PointList wayGeometryToFirstTowerNode = null;
+        PointList wayGeometryToLastGPXPoint = null;
         if (addStartWayGeometry){
             EdgeIteratorState firstEdge = pathEdgeList.get(0);
             if (isVirtualNode(firstEdge.getBaseNode())){
@@ -468,10 +462,18 @@ public class MapMatching {
 
         //////// Match Phase (4) ////////
         int minGPXIndex = startIndex;
-        for (EdgeIteratorState edge : pathEdgeList) {
+        for (int i = 0; i < pathEdgeList.size(); i++) {
+            EdgeIteratorState edge = pathEdgeList.get(i);
+            PointList wayGeometry = null;
+            if (i == 0){
+                wayGeometry = wayGeometryToFirstTowerNode;
+            }
+            if (i == pathEdgeList.size() - 1){
+                wayGeometry = wayGeometryToLastGPXPoint;
+            }
             List<GPXExtension> gpxExtensionList = extensionMap.get(edge.getEdge());
             if (gpxExtensionList == null) {
-                edgeMatches.add(new EdgeMatch(edge, Collections.<GPXExtension>emptyList()));
+                edgeMatches.add(new EdgeMatch(edge, Collections.<GPXExtension>emptyList(), wayGeometry));
                 continue;
             }
 
@@ -487,20 +489,13 @@ public class MapMatching {
                 }
             }
             minGPXIndex = newMinGPXIndex;
-            EdgeMatch edgeMatch = new EdgeMatch(edge, clonedList);
+            EdgeMatch edgeMatch = new EdgeMatch(edge, clonedList, wayGeometry);
             edgeMatches.add(edgeMatch);
         }
 
         MatchResult res = new MatchResult(edgeMatches);
         res.setMatchLength(path.getDistance());
         res.setMatchMillis(path.getTime());
-
-        if (addStartWayGeometry){
-            res.setGeometryToFirstTowernode(wayGeometryToFirstTowerNode);
-        }
-        if (addEndWayGeometry) {
-            res.setGeometryToLastGPXPoint(wayGeometryToLastGPXPoint);
-        }
 
         return res;
     }
