@@ -80,7 +80,7 @@ public class EdgeMatch {
         if(wayGeometry != null)
             return wayGeometry;
         else
-            return edgeState.fetchWayGeometry(0);
+            return edgeState.fetchWayGeometry(3);
     }
 
     @Override
