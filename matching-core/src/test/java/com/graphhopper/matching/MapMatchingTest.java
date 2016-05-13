@@ -44,6 +44,7 @@ import java.util.Collections;
 import java.util.List;
 import org.junit.AfterClass;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -287,6 +288,74 @@ public class MapMatchingTest {
 
         // now repaired list must not throw an exception
         mm.checkOrCleanup(res, false);
+    }
+
+    @Test
+    public void testWayGeometryAtStartAndEndPoint() {
+        GraphHopperStorage graph = hopper.getGraphHopperStorage();
+        LocationIndexMatch locationIndex = new LocationIndexMatch(graph,
+                (LocationIndexTree) hopper.getLocationIndex());
+        MapMatching mapMatching = new MapMatching(graph, locationIndex, encoder);
+
+        // https://graphhopper.com/maps/?point=51.341708%2C12.385272&point=51.340622%2C12.388405&locale=de-DE&vehicle=car&weighting=fastest&elevation=true&layer=Omniscale
+        List<GPXEntry> inputGPXEntries = new GPXFile().doImport("./src/test/resources/testStartEndGeometry.gpx").getEntries();
+        MatchResult mr = mapMatching.doWork(inputGPXEntries,true);
+
+        assertNotNull(mr.getGeometryToFirstTowernode());
+        assertNotNull(mr.getGeometryToLastGPXPoint());
+        assertEquals(2, mr.getGeometryToFirstTowernode().size());
+        assertEquals(2, mr.getGeometryToLastGPXPoint().size());
+
+        NodeAccess nodeAccess = graph.getNodeAccess();
+
+        assertEquals(51.341708, mr.getGeometryToFirstTowernode().getLat(0), 1E-5);
+        assertEquals( 12.385272, mr.getGeometryToFirstTowernode().getLon(0), 1E-5);
+        assertEquals(nodeAccess.getLat(mr.getEdgeMatches().get(0).getEdgeState().getAdjNode()), mr.getGeometryToFirstTowernode().getLat(1), 1E-5);
+        assertEquals(nodeAccess.getLon(mr.getEdgeMatches().get(0).getEdgeState().getAdjNode()), mr.getGeometryToFirstTowernode().getLon(1), 1E-5);
+
+        assertEquals(nodeAccess.getLat(mr.getEdgeMatches().get(mr.getEdgeMatches().size() - 1).getEdgeState().getBaseNode()), mr.getGeometryToLastGPXPoint().getLat(0), 1E-5);
+        assertEquals(nodeAccess.getLon(mr.getEdgeMatches().get(mr.getEdgeMatches().size() - 1).getEdgeState().getBaseNode()), mr.getGeometryToLastGPXPoint().getLon(0), 1E-5);
+        assertEquals(51.340622, mr.getGeometryToLastGPXPoint().getLat(1), 1E-5);
+        assertEquals(12.388405, mr.getGeometryToLastGPXPoint().getLon(1), 1E-5);
+
+
+        assertEquals(mr.getGpxEntriesLength(), mr.getMatchLength(), 1);
+        // TODO why is there such a big difference for millis?
+        assertEquals(mr.getGpxEntriesMillis(), mr.getMatchMillis(), 24000);
+    }
+
+    @Test
+    public void testWayGeometryAtStartAndEndPoint2() {
+        GraphHopperStorage graph = hopper.getGraphHopperStorage();
+        LocationIndexMatch locationIndex = new LocationIndexMatch(graph,
+                (LocationIndexTree) hopper.getLocationIndex());
+        MapMatching mapMatching = new MapMatching(graph, locationIndex, encoder);
+
+        // https://graphhopper.com/maps/?point=51.328198%2C12.335672&point=51.364285%2C12.459623&locale=de-DE&vehicle=car&weighting=fastest&elevation=true&layer=Omniscale
+        List<GPXEntry> inputGPXEntries = new GPXFile().doImport("./src/test/resources/testStartEndGeometry2.gpx").getEntries();
+        MatchResult mr = mapMatching.doWork(inputGPXEntries,true);
+
+        assertNotNull(mr.getGeometryToFirstTowernode());
+        assertNotNull(mr.getGeometryToLastGPXPoint());
+        assertEquals(2, mr.getGeometryToFirstTowernode().size());
+        assertEquals(4, mr.getGeometryToLastGPXPoint().size());
+
+        NodeAccess nodeAccess = graph.getNodeAccess();
+
+        assertEquals(51.328439, mr.getGeometryToFirstTowernode().getLat(0), 1E-5);
+        assertEquals(12.335785, mr.getGeometryToFirstTowernode().getLon(0), 1E-5);
+        assertEquals(nodeAccess.getLat(mr.getEdgeMatches().get(0).getEdgeState().getAdjNode()), mr.getGeometryToFirstTowernode().getLat(1), 1E-5);
+        assertEquals(nodeAccess.getLon(mr.getEdgeMatches().get(0).getEdgeState().getAdjNode()), mr.getGeometryToFirstTowernode().getLon(1), 1E-5);
+
+        assertEquals(nodeAccess.getLat(mr.getEdgeMatches().get(mr.getEdgeMatches().size() - 1).getEdgeState().getBaseNode()), mr.getGeometryToLastGPXPoint().getLat(0), 1E-5);
+        assertEquals(nodeAccess.getLon(mr.getEdgeMatches().get(mr.getEdgeMatches().size() - 1).getEdgeState().getBaseNode()), mr.getGeometryToLastGPXPoint().getLon(0), 1E-5);
+        assertEquals(51.364306, mr.getGeometryToLastGPXPoint().getLat(3), 1E-5);
+        assertEquals(12.459582, mr.getGeometryToLastGPXPoint().getLon(3), 1E-5);
+
+
+        assertEquals(mr.getGpxEntriesLength(), mr.getMatchLength(), 4);
+        // TODO why is there such a big difference for millis?
+        assertEquals(mr.getGpxEntriesMillis(), mr.getMatchMillis(), 242175);
     }
 
     List<String> fetchStreets(List<EdgeMatch> emList) {

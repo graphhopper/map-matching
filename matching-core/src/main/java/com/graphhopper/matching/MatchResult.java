@@ -17,6 +17,7 @@
  */
 package com.graphhopper.matching;
 
+import com.graphhopper.util.PointList;
 import java.util.List;
 
 /**
@@ -30,6 +31,8 @@ public class MatchResult {
     private long matchMillis;
     private double gpxEntriesLength;
     private long gpxEntriesMillis;
+    private PointList geometryToFirstTowernode;
+    private PointList geometryToLastGPXPoint;
 
     public MatchResult(List<EdgeMatch> edgeMatches) {
         setEdgeMatches(edgeMatches);
@@ -57,6 +60,14 @@ public class MatchResult {
 
     public void setMatchMillis(long matchMillis) {
         this.matchMillis = matchMillis;
+    }
+
+    public void setGeometryToFirstTowernode(PointList geometryToFirstTowernode) {
+        this.geometryToFirstTowernode = geometryToFirstTowernode;
+    }
+
+    public void setGeometryToLastGPXPoint(PointList geometryToLastGPXPoint) {
+        this.geometryToLastGPXPoint = geometryToLastGPXPoint;
     }
 
     /**
@@ -92,6 +103,20 @@ public class MatchResult {
      */
     public long getMatchMillis() {
         return matchMillis;
+    }
+
+    /**
+     * Way geometry from start of input GPX snapped to road to the first towerNode
+     */
+    public PointList getGeometryToFirstTowernode() {
+        return geometryToFirstTowernode;
+    }
+
+    /**
+     * Way geometry from secondLast towerNode to end of input GPX snapped to road
+     */
+    public PointList getGeometryToLastGPXPoint() {
+        return geometryToLastGPXPoint;
     }
 
     @Override
