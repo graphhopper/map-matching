@@ -29,6 +29,8 @@ import com.graphhopper.matching.MapMatching;
 import com.graphhopper.matching.MatchResult;
 import com.graphhopper.routing.Path;
 import com.graphhopper.routing.util.FlagEncoder;
+import com.graphhopper.routing.util.FastestWeighting;
+import com.graphhopper.routing.util.ShortestWeighting;
 import com.graphhopper.util.EdgeIteratorState;
 import com.graphhopper.util.GHUtility;
 import com.graphhopper.util.Helper;
@@ -105,6 +107,7 @@ public class MatchServlet extends GraphHopperServlet {
         int separatedSearchDistance = (int) getLongParam(httpReq, "separated_search_distance", 300);
 
         String vehicle = getParam(httpReq, "vehicle", "car");
+        String weighting = getParam(httpReq, "weighting", "fastest");
 
         Locale locale = Helper.getLocale(getParam(httpReq, "locale", "en"));
         PathWrapper matchGHRsp = new PathWrapper();
@@ -114,6 +117,18 @@ public class MatchServlet extends GraphHopperServlet {
         try {
             FlagEncoder encoder = hopper.getEncodingManager().getEncoder(vehicle);
             MapMatching matching = new MapMatching(hopper.getGraphHopperStorage(), locationIndexMatch, encoder);
+
+            switch (weighting) {
+                case "shortest":
+                    matching.setWeighting(new ShortestWeighting(encoder));
+                    break;
+                case "fastest":
+                    matching.setWeighting(new FastestWeighting(encoder));
+                    break;
+                default:
+                    throw new IllegalStateException("invalid weighting");
+            }
+
             matching.setForceRepair(forceRepair);
             matching.setMaxNodesToVisit(maxNodesToVisit);
             matching.setSeparatedSearchDistance(separatedSearchDistance);
