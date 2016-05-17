@@ -40,7 +40,7 @@ public class MatchResultToJson {
             JSONObject geometry = new JSONObject();
 
             EdgeMatch edgeMatch = result.getEdgeMatches().get(emIndex);
-            PointList pointList = edgeMatch.getWayGeometry();
+            PointList pointList = edgeMatch.getWayGeometry(emIndex == 0 ? 3 : 2);
            
             if(pointList.size() < 2) {
                 geometry.put("coordinates", pointList.toGeoJson().get(0));

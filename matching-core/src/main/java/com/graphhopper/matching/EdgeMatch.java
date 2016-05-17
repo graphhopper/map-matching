@@ -76,11 +76,36 @@ public class EdgeMatch {
         return min;
     }
 
-    public PointList getWayGeometry() {
+    /**
+     * For OSM a way is often a curve not just a straight line. These nodes are called pillar nodes
+     * and are between tower nodes (which are used for routing), they are necessary to have a more
+     * exact geometry. Updates to the returned list are not reflected in the graph, for that you've
+     * to use setWayGeometry.
+     * <p>
+     * @param mode can be <ul> <li>0 = only pillar nodes, no tower nodes</li> <li>1 = inclusive the
+     * base tower node only</li> <li>2 = inclusive the adjacent tower node only</li> <li>3 =
+     * inclusive the base and adjacent tower node</li> </ul>
+     * @return pillar nodes
+     */
+    public PointList getWayGeometry(int mode){
         if(wayGeometry != null)
-            return wayGeometry;
+            switch (mode){
+                case 0:
+                    return wayGeometry.copy(1,wayGeometry.size() - 1);
+                case 1:
+                    return wayGeometry.copy(0,wayGeometry.size() - 1);
+                case 2:
+                    return wayGeometry.copy(1,wayGeometry.size());
+                case 3:
+                default:
+                    return wayGeometry;
+            }
         else
-            return edgeState.fetchWayGeometry(3);
+            return edgeState.fetchWayGeometry(mode);
+    }
+
+    public PointList getWayGeometry() {
+        return getWayGeometry(3);
     }
 
     @Override
