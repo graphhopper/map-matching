@@ -299,7 +299,7 @@ public class MapMatchingTest {
 
         // https://graphhopper.com/maps/?point=51.341708%2C12.385272&point=51.340622%2C12.388405&locale=de-DE&vehicle=car&weighting=fastest&elevation=true&layer=Omniscale
         List<GPXEntry> inputGPXEntries = new GPXFile().doImport("./src/test/resources/testStartEndGeometry.gpx").getEntries();
-        MatchResult mr = mapMatching.doWork(inputGPXEntries,true);
+        MatchResult mr = mapMatching.doWork(inputGPXEntries, true);
 
         NodeAccess nodeAccess = graph.getNodeAccess();
 
@@ -336,7 +336,7 @@ public class MapMatchingTest {
 
         // https://graphhopper.com/maps/?point=51.328198%2C12.335672&point=51.364285%2C12.459623&locale=de-DE&vehicle=car&weighting=fastest&elevation=true&layer=Omniscale
         List<GPXEntry> inputGPXEntries = new GPXFile().doImport("./src/test/resources/testStartEndGeometry2.gpx").getEntries();
-        MatchResult mr = mapMatching.doWork(inputGPXEntries,true);
+        MatchResult mr = mapMatching.doWork(inputGPXEntries, true);
 
 
         NodeAccess nodeAccess = graph.getNodeAccess();
