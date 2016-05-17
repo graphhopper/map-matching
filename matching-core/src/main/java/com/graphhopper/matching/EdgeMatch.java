@@ -30,11 +30,10 @@ public class EdgeMatch {
 
     private final EdgeIteratorState edgeState;
     private final List<GPXExtension> gpxExtensions;
-    private final PointList wayGeometry;
+    private PointList wayGeometry;
 
-    public EdgeMatch(EdgeIteratorState edgeState, List<GPXExtension> gpxExtension, PointList wayGeometry) {
+    public EdgeMatch(EdgeIteratorState edgeState, List<GPXExtension> gpxExtension) {
         this.edgeState = edgeState;
-        this.wayGeometry = wayGeometry;
 
         if (edgeState == null) {
             throw new IllegalStateException("Cannot fetch null EdgeState");
@@ -44,10 +43,6 @@ public class EdgeMatch {
         if (this.gpxExtensions == null) {
             throw new IllegalStateException("extension list cannot be null");
         }
-    }
-
-    public EdgeMatch(EdgeIteratorState edgeState, List<GPXExtension> gpxExtension){
-        this(edgeState, gpxExtension, null);
     }
 
     public boolean isEmpty() {
@@ -76,7 +71,11 @@ public class EdgeMatch {
         return min;
     }
 
-    /**
+	public void setWayGeometry(PointList wayGeometry) {
+		this.wayGeometry = wayGeometry;
+	}
+
+	/**
      * For OSM a way is often a curve not just a straight line. These nodes are called pillar nodes
      * and are between tower nodes (which are used for routing), they are necessary to have a more
      * exact geometry. Updates to the returned list are not reflected in the graph, for that you've
@@ -87,7 +86,7 @@ public class EdgeMatch {
      * inclusive the base and adjacent tower node</li> </ul>
      * @return pillar nodes
      */
-    public PointList getWayGeometry(int mode){
+    public PointList fetchWayGeometry(int mode){
         if(wayGeometry != null)
             switch (mode){
                 case 0:
@@ -104,8 +103,8 @@ public class EdgeMatch {
             return edgeState.fetchWayGeometry(mode);
     }
 
-    public PointList getWayGeometry() {
-        return getWayGeometry(3);
+    public PointList fetchWayGeometry() {
+        return fetchWayGeometry(3);
     }
 
     @Override

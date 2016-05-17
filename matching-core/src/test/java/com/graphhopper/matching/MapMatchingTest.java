@@ -306,19 +306,19 @@ public class MapMatchingTest {
         List<EdgeMatch> edgeMatches = mr.getEdgeMatches();
         for (int i = 0; i < edgeMatches.size(); i++) {
             EdgeMatch match = edgeMatches.get(i);
-            assertNotNull(match.getWayGeometry());
+            assertNotNull(match.fetchWayGeometry());
             if (i == 0) {
-                assertEquals(2, match.getWayGeometry().size());
-                assertEquals(51.341708, match.getWayGeometry().getLat(0), 1E-5);
-                assertEquals(12.385272, match.getWayGeometry().getLon(0), 1E-5);
-                assertEquals(nodeAccess.getLat(mr.getEdgeMatches().get(0).getEdgeState().getAdjNode()), match.getWayGeometry().getLat(1), 1E-5);
-                assertEquals(nodeAccess.getLon(mr.getEdgeMatches().get(0).getEdgeState().getAdjNode()), match.getWayGeometry().getLon(1), 1E-5);
+                assertEquals(2, match.fetchWayGeometry().size());
+                assertEquals(51.341708, match.fetchWayGeometry().getLat(0), 1E-5);
+                assertEquals(12.385272, match.fetchWayGeometry().getLon(0), 1E-5);
+                assertEquals(nodeAccess.getLat(mr.getEdgeMatches().get(0).getEdgeState().getAdjNode()), match.fetchWayGeometry().getLat(1), 1E-5);
+                assertEquals(nodeAccess.getLon(mr.getEdgeMatches().get(0).getEdgeState().getAdjNode()), match.fetchWayGeometry().getLon(1), 1E-5);
             } else if (i == edgeMatches.size() - 1) {
-                assertEquals(2, match.getWayGeometry().size());
-                assertEquals(nodeAccess.getLat(mr.getEdgeMatches().get(mr.getEdgeMatches().size() - 1).getEdgeState().getBaseNode()), match.getWayGeometry().getLat(0), 1E-5);
-                assertEquals(nodeAccess.getLon(mr.getEdgeMatches().get(mr.getEdgeMatches().size() - 1).getEdgeState().getBaseNode()), match.getWayGeometry().getLon(0), 1E-5);
-                assertEquals(51.340622, match.getWayGeometry().getLat(1), 1E-5);
-                assertEquals(12.388405, match.getWayGeometry().getLon(1), 1E-5);
+                assertEquals(2, match.fetchWayGeometry().size());
+                assertEquals(nodeAccess.getLat(mr.getEdgeMatches().get(mr.getEdgeMatches().size() - 1).getEdgeState().getBaseNode()), match.fetchWayGeometry().getLat(0), 1E-5);
+                assertEquals(nodeAccess.getLon(mr.getEdgeMatches().get(mr.getEdgeMatches().size() - 1).getEdgeState().getBaseNode()), match.fetchWayGeometry().getLon(0), 1E-5);
+                assertEquals(51.340622, match.fetchWayGeometry().getLat(1), 1E-5);
+                assertEquals(12.388405, match.fetchWayGeometry().getLon(1), 1E-5);
             }
         }
 
@@ -344,19 +344,19 @@ public class MapMatchingTest {
         List<EdgeMatch> edgeMatches = mr.getEdgeMatches();
         for (int i = 0; i < edgeMatches.size(); i++) {
             EdgeMatch match = edgeMatches.get(i);
-            assertNotNull(match.getWayGeometry());
+            assertNotNull(match.fetchWayGeometry());
             if (i == 0) {
-                assertEquals(2, match.getWayGeometry().size());
-                assertEquals(51.328439, match.getWayGeometry().getLat(0), 1E-5);
-                assertEquals(12.335785, match.getWayGeometry().getLon(0), 1E-5);
-                assertEquals(nodeAccess.getLat(mr.getEdgeMatches().get(0).getEdgeState().getAdjNode()), match.getWayGeometry().getLat(1), 1E-5);
-                assertEquals(nodeAccess.getLon(mr.getEdgeMatches().get(0).getEdgeState().getAdjNode()), match.getWayGeometry().getLon(1), 1E-5);
+                assertEquals(2, match.fetchWayGeometry().size());
+                assertEquals(51.328439, match.fetchWayGeometry().getLat(0), 1E-5);
+                assertEquals(12.335785, match.fetchWayGeometry().getLon(0), 1E-5);
+                assertEquals(nodeAccess.getLat(mr.getEdgeMatches().get(0).getEdgeState().getAdjNode()), match.fetchWayGeometry().getLat(1), 1E-5);
+                assertEquals(nodeAccess.getLon(mr.getEdgeMatches().get(0).getEdgeState().getAdjNode()), match.fetchWayGeometry().getLon(1), 1E-5);
             } else if (i == edgeMatches.size() - 1) {
-                assertEquals(4, match.getWayGeometry().size());
-                assertEquals(nodeAccess.getLat(mr.getEdgeMatches().get(mr.getEdgeMatches().size() - 1).getEdgeState().getBaseNode()), match.getWayGeometry().getLat(0), 1E-5);
-                assertEquals(nodeAccess.getLon(mr.getEdgeMatches().get(mr.getEdgeMatches().size() - 1).getEdgeState().getBaseNode()), match.getWayGeometry().getLon(0), 1E-5);
-                assertEquals(51.364306, match.getWayGeometry().getLat(3), 1E-5);
-                assertEquals(12.459582, match.getWayGeometry().getLon(3), 1E-5);
+                assertEquals(4, match.fetchWayGeometry().size());
+                assertEquals(nodeAccess.getLat(mr.getEdgeMatches().get(mr.getEdgeMatches().size() - 1).getEdgeState().getBaseNode()), match.fetchWayGeometry().getLat(0), 1E-5);
+                assertEquals(nodeAccess.getLon(mr.getEdgeMatches().get(mr.getEdgeMatches().size() - 1).getEdgeState().getBaseNode()), match.fetchWayGeometry().getLon(0), 1E-5);
+                assertEquals(51.364306, match.fetchWayGeometry().getLat(3), 1E-5);
+                assertEquals(12.459582, match.fetchWayGeometry().getLon(3), 1E-5);
             }
         }
 
