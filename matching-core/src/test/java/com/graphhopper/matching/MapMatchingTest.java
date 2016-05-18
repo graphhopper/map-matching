@@ -27,16 +27,7 @@ import com.graphhopper.storage.GraphHopperStorage;
 import com.graphhopper.storage.NodeAccess;
 import com.graphhopper.storage.index.LocationIndex;
 import com.graphhopper.storage.index.LocationIndexTree;
-import com.graphhopper.util.BreadthFirstSearch;
-import com.graphhopper.util.EdgeExplorer;
-import com.graphhopper.util.EdgeIteratorState;
-import com.graphhopper.util.GHUtility;
-import com.graphhopper.util.GPXEntry;
-import com.graphhopper.util.Helper;
-import com.graphhopper.util.InstructionList;
-import com.graphhopper.util.PathMerger;
-import com.graphhopper.util.Translation;
-import com.graphhopper.util.TranslationMap;
+import com.graphhopper.util.*;
 import com.graphhopper.util.shapes.GHPoint;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -325,6 +316,31 @@ public class MapMatchingTest {
         assertEquals(mr.getGpxEntriesLength(), mr.getMatchLength(), 1);
         // TODO why is there such a big difference for millis?
         assertEquals(mr.getGpxEntriesMillis(), mr.getMatchMillis(), 24000);
+    }
+
+    @Test
+    public void testWayGeometryAtStartAndEndPointOneEdge() {
+        GraphHopperStorage graph = hopper.getGraphHopperStorage();
+        LocationIndexMatch locationIndex = new LocationIndexMatch(graph,
+                (LocationIndexTree) hopper.getLocationIndex());
+        MapMatching mapMatching = new MapMatching(graph, locationIndex, encoder);
+
+        // https://graphhopper.com/maps/?point=51.341497%2C12.385304&point=51.341198%2C12.38534&locale=de-DE&vehicle=car&weighting=fastest&elevation=true&layer=Omniscale
+        List<GPXEntry> inputGPXEntries = new GPXFile().doImport("./src/test/resources/testStartEndGeometryOneEdge.gpx").getEntries();
+        MatchResult mr = mapMatching.doWork(inputGPXEntries, true);
+
+        List<EdgeMatch> edgeMatches = mr.getEdgeMatches();
+        assertEquals(1, edgeMatches.size());
+        EdgeMatch match = edgeMatches.get(0);
+        PointList wayGeometry = match.fetchWayGeometry(3);
+        assertEquals(51.341497, wayGeometry.getLat(0), 1E-5);
+        assertEquals(12.385304, wayGeometry.getLon(0), 1E-5);
+        assertEquals(51.341198, wayGeometry.getLat(1), 1E-5);
+        assertEquals(12.38534, wayGeometry.getLon(1), 1E-5);
+
+        assertEquals(mr.getGpxEntriesLength(), mr.getMatchLength(), 0.1);
+        // TODO why is there such a big difference for millis?
+        assertEquals(mr.getGpxEntriesMillis(), mr.getMatchMillis(), 1000);
     }
 
     @Test

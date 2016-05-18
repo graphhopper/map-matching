@@ -497,10 +497,10 @@ public class MapMatching {
     }
 
     private void addWayGeometry(int i, int lastIndex, PointList wayGeometryToFirstTowerNode, PointList wayGeometryToLastGPXPoint, EdgeMatch edgeMatch) {
-        if (i == 0) {
+        if (i == 0 && wayGeometryToFirstTowerNode != null) {
             edgeMatch.setWayGeometry(wayGeometryToFirstTowerNode);
         }
-        if (i == lastIndex) {
+        if (i == lastIndex && wayGeometryToLastGPXPoint != null) {
             edgeMatch.setWayGeometry(wayGeometryToLastGPXPoint);
         }
     }
