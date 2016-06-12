@@ -478,7 +478,7 @@ public class MapMatching {
 
     private static class DoubleRef {
 
-        double value;
+        private double value;
 
         public DoubleRef(double value) {
             this.value = value;

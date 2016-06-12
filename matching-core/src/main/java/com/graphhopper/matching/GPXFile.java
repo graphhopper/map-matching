@@ -45,9 +45,9 @@ import org.w3c.dom.NodeList;
  */
 public class GPXFile {
 
-    static final String DATE_FORMAT = "yyyy-MM-dd'T'HH:mm:ssZ";
-    static final String DATE_FORMAT_Z = "yyyy-MM-dd'T'HH:mm:ss'Z'";
-    static final String DATE_FORMAT_Z_MS = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'";
+    private static final String DATE_FORMAT = "yyyy-MM-dd'T'HH:mm:ssZ";
+    private static final String DATE_FORMAT_Z = "yyyy-MM-dd'T'HH:mm:ss'Z'";
+    private static final String DATE_FORMAT_Z_MS = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'";
     private final List<GPXEntry> entries;
     private final boolean includeElevation = false;
     private InstructionList instructions;

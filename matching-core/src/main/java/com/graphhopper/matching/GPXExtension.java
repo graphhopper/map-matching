@@ -26,7 +26,7 @@ import com.graphhopper.util.GPXEntry;
  */
 public class GPXExtension
 {
-    final GPXEntry entry;
+    private final GPXEntry entry;
     final QueryResult queryResult;
     final int gpxListIndex;
 
