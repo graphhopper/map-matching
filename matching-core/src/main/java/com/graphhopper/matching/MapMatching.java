@@ -145,7 +145,7 @@ public class MapMatching {
      * @param gpxList the input list with GPX points which should match to edges
      * of the graph specified in the constructor
      */
-    public MatchResult doWork(List<GPXEntry> gpxList) {
+    public MatchResult doWork(List<GPXEntry> gpxList, boolean addStartAndEndWayGeometry) {
         int currentIndex = 0;
         if (gpxList.size() < 2) {
             throw new IllegalStateException("gpx list needs at least 2 points!");
@@ -183,7 +183,7 @@ public class MapMatching {
             }
 
             boolean doEnd = currentIndex >= gpxList.size();
-            MatchResult subMatch = doWork(firstQueryResults, gpxSublist, gpxLength, doEnd);
+            MatchResult subMatch = doWork(firstQueryResults, gpxSublist, gpxLength, doEnd, addStartAndEndWayGeometry && (separatedListStartIndex == 0), addStartAndEndWayGeometry && doEnd);
             List<EdgeMatch> result = subMatch.getEdgeMatches();
             matchResult.setMatchLength(matchResult.getMatchLength() + subMatch.getMatchLength());
             matchResult.setMatchMillis(matchResult.getMatchMillis() + subMatch.getMatchMillis());
@@ -230,6 +230,10 @@ public class MapMatching {
         return matchResult;
     }
 
+    public MatchResult doWork(List<GPXEntry> gpxList) {
+        return doWork(gpxList, false);
+    }
+
     /**
      * This method creates a matching for the specified sublist, it uses the
      * firstQueryResults to do the initialization for the start nodes, or just a
@@ -239,7 +243,7 @@ public class MapMatching {
      * doEnd is true, then the original edge is added
      */
     MatchResult doWork(List<QueryResult> firstQueryResults,
-            List<GPXEntry> gpxList, double gpxLength, boolean doEnd) {
+            List<GPXEntry> gpxList, double gpxLength, boolean doEnd, boolean addStartWayGeometry, boolean addEndWayGeometry) {
         int guessedEdgesPerPoint = 4;
         List<EdgeMatch> edgeMatches = new ArrayList<EdgeMatch>();
         final TIntObjectHashMap<List<GPXExtension>> extensionMap
@@ -410,6 +414,22 @@ public class MapMatching {
                     + ", all results:" + allQRs + ", end results:" + endQRList);
         }
 
+        //Save the way geometry before we remove the virtualNodes
+        PointList wayGeometryToFirstTowerNode = null;
+        PointList wayGeometryToLastGPXPoint = null;
+        if (addStartWayGeometry) {
+            EdgeIteratorState firstEdge = pathEdgeList.get(0);
+            if (isVirtualNode(firstEdge.getBaseNode())) {
+                wayGeometryToFirstTowerNode = firstEdge.fetchWayGeometry(3);
+            }
+        }
+        if (addEndWayGeometry) {
+            EdgeIteratorState lastEdge = pathEdgeList.get(pathEdgeList.size() - 1);
+            if (isVirtualNode(lastEdge.getAdjNode())) {
+                wayGeometryToLastGPXPoint = lastEdge.fetchWayGeometry(3);
+            }
+        }
+
         //
         // replace virtual edges with original *full edge* at start and end!
         List<EdgeIteratorState> list = new ArrayList<EdgeIteratorState>(pathEdgeList.size());
@@ -442,10 +462,13 @@ public class MapMatching {
 
         //////// Match Phase (4) ////////
         int minGPXIndex = startIndex;
-        for (EdgeIteratorState edge : pathEdgeList) {
+        for (int i = 0; i < pathEdgeList.size(); i++) {
+            EdgeIteratorState edge = pathEdgeList.get(i);
             List<GPXExtension> gpxExtensionList = extensionMap.get(edge.getEdge());
             if (gpxExtensionList == null) {
-                edgeMatches.add(new EdgeMatch(edge, Collections.<GPXExtension>emptyList()));
+                EdgeMatch edgeMatch = new EdgeMatch(edge, Collections.<GPXExtension>emptyList());
+                addWayGeometry(i, pathEdgeList.size() - 1, wayGeometryToFirstTowerNode, wayGeometryToLastGPXPoint, edgeMatch);
+                edgeMatches.add(edgeMatch);
                 continue;
             }
 
@@ -462,6 +485,7 @@ public class MapMatching {
             }
             minGPXIndex = newMinGPXIndex;
             EdgeMatch edgeMatch = new EdgeMatch(edge, clonedList);
+            addWayGeometry(i, pathEdgeList.size() - 1, wayGeometryToFirstTowerNode, wayGeometryToLastGPXPoint, edgeMatch);
             edgeMatches.add(edgeMatch);
         }
 
@@ -470,6 +494,15 @@ public class MapMatching {
         res.setMatchMillis(path.getTime());
 
         return res;
+    }
+
+    private void addWayGeometry(int i, int lastIndex, PointList wayGeometryToFirstTowerNode, PointList wayGeometryToLastGPXPoint, EdgeMatch edgeMatch) {
+        if (i == 0 && wayGeometryToFirstTowerNode != null) {
+            edgeMatch.setWayGeometry(wayGeometryToFirstTowerNode);
+        }
+        if (i == lastIndex && wayGeometryToLastGPXPoint != null) {
+            edgeMatch.setWayGeometry(wayGeometryToLastGPXPoint);
+        }
     }
 
     private boolean isVirtualNode(int node) {

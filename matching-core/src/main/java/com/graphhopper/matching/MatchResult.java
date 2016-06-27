@@ -17,6 +17,7 @@
  */
 package com.graphhopper.matching;
 
+import com.graphhopper.util.PointList;
 import java.util.List;
 
 /**
