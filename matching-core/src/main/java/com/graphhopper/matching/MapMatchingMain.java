@@ -74,7 +74,9 @@ public class MapMatchingMain {
                     (LocationIndexTree) hopper.getLocationIndex(), gpxAccuracy);
             MapMatching mapMatching = new MapMatching(graph, locationIndex, firstEncoder);
             mapMatching.setMaxVisitedNodes(args.getInt("max_visited_nodes", 1000));
-            
+            mapMatching.setTransitionProbabilityBeta(args.getDouble("transition_probability_beta", 0.00959442));
+            mapMatching.setMeasurementErrorSigma(gpxAccuracy);
+
             // do the actual matching, get the GPX entries from a file or via stream
             String gpxLocation = args.get("gpx", "");
             File[] files = getFiles(gpxLocation);
