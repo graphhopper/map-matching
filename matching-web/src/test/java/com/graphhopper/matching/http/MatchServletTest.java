@@ -1,3 +1,20 @@
+/*
+ *  Licensed to GraphHopper GmbH under one or more contributor
+ *  license agreements. See the NOTICE file distributed with this work for 
+ *  additional information regarding copyright ownership.
+ * 
+ *  GraphHopper GmbH licenses this file to you under the Apache License, 
+ *  Version 2.0 (the "License"); you may not use this file except in 
+ *  compliance with the License. You may obtain a copy of the License at
+ * 
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ */
 package com.graphhopper.matching.http;
 
 import com.graphhopper.http.WebHelper;
@@ -15,8 +32,8 @@ import static org.junit.Assert.*;
  */
 public class MatchServletTest extends BaseServletTester {
 
-    private static final String pbf = "../map-data/leipzig_germany.osm.pbf";
-    private static final String dir = "../target/mapmatchingtest";
+    private static final String PBF = "../map-data/leipzig_germany.osm.pbf";
+    private static final String DIR = "../target/mapmatchingtest";
 
     @AfterClass
     public static void cleanUp() {
@@ -29,9 +46,9 @@ public class MatchServletTest extends BaseServletTester {
     public void setUp() {
         CmdArgs args = new CmdArgs().
                 put("graph.flagEncoders", "car").
-                put("prepare.chWeighting", "no").
-                put("osmreader.osm", pbf).
-                put("graph.location", dir);
+                put("prepare.chWeightings", "no").
+                put("osmreader.osm", PBF).
+                put("graph.location", DIR);
         setUpJetty(args);
     }
 
@@ -51,6 +68,6 @@ public class MatchServletTest extends BaseServletTester {
         assertEquals(9, WebHelper.decodePolyline(path.getString("points"), 10, false).size());
 
         assertEquals(132.9, path.getLong("time") / 1000f, 0.1);
-        assertEquals(1002, path.getDouble("distance"), 1);        
+        assertEquals(1002, path.getDouble("distance"), 1);
     }
 }

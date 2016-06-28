@@ -1,14 +1,14 @@
 /*
- *  Licensed to GraphHopper and Peter Karich under one or more contributor
- *  license agreements. See the NOTICE file distributed with this work for
+ *  Licensed to GraphHopper GmbH under one or more contributor
+ *  license agreements. See the NOTICE file distributed with this work for 
  *  additional information regarding copyright ownership.
- *
- *  GraphHopper licenses this file to you under the Apache License,
- *  Version 2.0 (the "License"); you may not use this file except in
+ * 
+ *  GraphHopper GmbH licenses this file to you under the Apache License, 
+ *  Version 2.0 (the "License"); you may not use this file except in 
  *  compliance with the License. You may obtain a copy of the License at
- *
+ * 
  *       http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
  *  Unless required by applicable law or agreed to in writing, software
  *  distributed under the License is distributed on an "AS IS" BASIS,
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -63,9 +63,9 @@ public class MatchServlet extends GraphHopperServlet {
         String infoStr = httpReq.getRemoteAddr() + " " + httpReq.getLocale() + " " + httpReq.getHeader("User-Agent");
         String type = httpReq.getContentType();
         GPXFile gpxFile;
-        if (type.contains("application/xml")) {
+        if (type.contains("application/xml") || type.contains("application/gpx+xml")) {
             try {
-                gpxFile = parseXML(httpReq);
+                gpxFile = parseGPX(httpReq);
             } catch (Exception ex) {
                 logger.warn("Cannot parse XML for " + httpReq.getQueryString() + ", " + infoStr);
                 httpRes.setStatus(SC_BAD_REQUEST);
@@ -94,7 +94,7 @@ public class MatchServlet extends GraphHopperServlet {
         try {
             FlagEncoder encoder = hopper.getEncodingManager().getEncoder(vehicle);
             MapMatching matching = new MapMatching(hopper.getGraphHopperStorage(), locationIndexMatch, encoder);
-
+            // TODO matching.setMaxVisitedNodes(hopper.getMaxVisitedNodes());
             matchRsp = matching.doWork(gpxFile.getEntries());
 
             // fill GHResponse for identical structure            
@@ -167,7 +167,7 @@ public class MatchServlet extends GraphHopperServlet {
         throw new IllegalStateException("json input not yet supported");
     }
 
-    private GPXFile parseXML(HttpServletRequest httpReq) throws IOException {
+    private GPXFile parseGPX(HttpServletRequest httpReq) throws IOException {
         GPXFile file = new GPXFile();
         return file.doImport(httpReq.getInputStream());
     }
