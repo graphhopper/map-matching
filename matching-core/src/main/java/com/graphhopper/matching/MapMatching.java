@@ -180,10 +180,10 @@ public class MapMatching {
 
             @Override
             public Double routeLength(GPXExtension sourcePosition, GPXExtension targetPosition) {
-                // TODO first improvement: use bidir Dijkstra and allow CH, then optionally use cached one-to-many Dijkstra to improve speed
-                Dijkstra dijkstra = new Dijkstra(queryGraph, encoder, weighting, traversalMode);
-                dijkstra.setMaxVisitedNodes(maxVisitedNodes);
-                Path path = dijkstra.calcPath(sourcePosition.getQueryResult().getClosestNode(), targetPosition.getQueryResult().getClosestNode());
+                // TODO allow CH, then optionally use cached one-to-many Dijkstra to improve speed
+                DijkstraBidirectionRef algo = new DijkstraBidirectionRef(queryGraph, encoder, weighting, traversalMode);
+                algo.setMaxVisitedNodes(maxVisitedNodes);
+                Path path = algo.calcPath(sourcePosition.getQueryResult().getClosestNode(), targetPosition.getQueryResult().getClosestNode());
                 paths.put(hash(sourcePosition.getQueryResult(), targetPosition.getQueryResult()), path);
                 return path.getDistance();
             }
