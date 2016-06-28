@@ -85,7 +85,8 @@ public class MatchServlet extends GraphHopperServlet {
         boolean enableTraversalKeys = getBooleanParam(httpReq, "traversal_keys", false);
 
         String vehicle = getParam(httpReq, "vehicle", "car");
-
+        int maxVisitedNodes = Math.min(getIntParam(httpReq, "max_visited_nodes", 800), 5000);
+        int gpsAccuracy = Math.max(getIntParam(httpReq, "gps_accuracy", 50), 10);
         Locale locale = Helper.getLocale(getParam(httpReq, "locale", "en"));
         PathWrapper matchGHRsp = new PathWrapper();
         MatchResult matchRsp = null;
@@ -94,7 +95,8 @@ public class MatchServlet extends GraphHopperServlet {
         try {
             FlagEncoder encoder = hopper.getEncodingManager().getEncoder(vehicle);
             MapMatching matching = new MapMatching(hopper.getGraphHopperStorage(), locationIndexMatch, encoder);
-            // TODO matching.setMaxVisitedNodes(hopper.getMaxVisitedNodes());
+            matching.setMaxVisitedNodes(maxVisitedNodes);
+            matching.setMeasurementErrorSigma(gpsAccuracy);
             matchRsp = matching.doWork(gpxFile.getEntries());
 
             // fill GHResponse for identical structure            

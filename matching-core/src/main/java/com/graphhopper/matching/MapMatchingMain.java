@@ -67,15 +67,20 @@ public class MapMatchingMain {
             FlagEncoder firstEncoder = hopper.getEncodingManager().fetchEdgeEncoders().get(0);
             GraphHopperStorage graph = hopper.getGraphHopperStorage();
 
-            int gpxAccuracy = args.getInt("gpx_accuracy", 15);
+            int gpsAccuracy = args.getInt("gps_accuracy", -1);
+            if (gpsAccuracy < 0) {
+                // backward compatibility since 0.8
+                gpsAccuracy = args.getInt("gpx_accuracy", 15);
+            }
+
             String instructions = args.get("instructions", "");
-            logger.info("Setup lookup index. Accuracy filter is at " + gpxAccuracy + "m");
+            logger.info("Setup lookup index. Accuracy filter is at " + gpsAccuracy + "m");
             LocationIndexMatch locationIndex = new LocationIndexMatch(graph,
-                    (LocationIndexTree) hopper.getLocationIndex(), gpxAccuracy);
+                    (LocationIndexTree) hopper.getLocationIndex(), gpsAccuracy);
             MapMatching mapMatching = new MapMatching(graph, locationIndex, firstEncoder);
             mapMatching.setMaxVisitedNodes(args.getInt("max_visited_nodes", 1000));
             mapMatching.setTransitionProbabilityBeta(args.getDouble("transition_probability_beta", 0.00959442));
-            mapMatching.setMeasurementErrorSigma(gpxAccuracy);
+            mapMatching.setMeasurementErrorSigma(gpsAccuracy);
 
             // do the actual matching, get the GPX entries from a file or via stream
             String gpxLocation = args.get("gpx", "");

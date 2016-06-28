@@ -17,7 +17,6 @@
  */
 package com.graphhopper.matching;
 
-import com.graphhopper.routing.Dijkstra;
 import com.graphhopper.routing.DijkstraBidirectionRef;
 import com.graphhopper.routing.Path;
 import com.graphhopper.routing.QueryGraph;
@@ -68,7 +67,7 @@ public class MapMatching {
     private double measurementErrorSigma = 40.0;
 
     private double transitionProbabilityBeta = 0.00959442;
-    private int maxVisitedNodes = Integer.MAX_VALUE;
+    private int maxVisitedNodes = 800;
     private final int nodeCount;
     private DistanceCalc distanceCalc = new DistancePlaneProjection();
     private Weighting weighting;
@@ -184,7 +183,12 @@ public class MapMatching {
                 DijkstraBidirectionRef algo = new DijkstraBidirectionRef(queryGraph, encoder, weighting, traversalMode);
                 algo.setMaxVisitedNodes(maxVisitedNodes);
                 Path path = algo.calcPath(sourcePosition.getQueryResult().getClosestNode(), targetPosition.getQueryResult().getClosestNode());
+
                 paths.put(hash(sourcePosition.getQueryResult(), targetPosition.getQueryResult()), path);
+
+                if (!path.isFound()) {
+                    return Double.POSITIVE_INFINITY;
+                }
                 return path.getDistance();
             }
         };
