@@ -60,7 +60,7 @@ public class MatchServlet extends GraphHopperServlet {
     public void doPost(HttpServletRequest httpReq, HttpServletResponse httpRes)
             throws ServletException, IOException {
 
-        String infoStr = httpReq.getRemoteAddr() + " " + httpReq.getLocale() + " " + httpReq.getHeader("User-Agent");
+        String infoStr = httpReq.getRemoteAddr() + " " + httpReq.getLocale();
         String type = httpReq.getContentType();
         GPXFile gpxFile;
         if (type.contains("application/xml") || type.contains("application/gpx+xml")) {

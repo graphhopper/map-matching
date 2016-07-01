@@ -48,8 +48,8 @@ public class MapMatchingMain {
         String action = args.get("action", "").toLowerCase();
         args.put("graph.location", "./graph-cache");
         if (action.equals("import")) {
-            String vehicle = args.get("vehicle", "car").toLowerCase();
-            args.put("graph.flag_encoders", vehicle);
+            String flagEncoders = args.get("vehicle", "car").toLowerCase();
+            args.put("graph.flag_encoders", flagEncoders);
             args.put("osmreader.osm", args.get("datasource", ""));
 
             // standard should be to remove disconnected islands

@@ -150,6 +150,9 @@ public class MapMatching {
             }
             indexGPX++;
         }
+        if (allCandidates.size() < 2) {
+            throw new IllegalArgumentException("To few matching coordinates (" + allCandidates.size() + "). Wrong region imported?");
+        }
         if (timeSteps.size() < 2) {
             throw new IllegalStateException("Coordinates produced too few time steps " + timeSteps.size() + ", gpxList:" + gpxList.size());
         }
@@ -196,18 +199,18 @@ public class MapMatching {
                 = new MapMatchingHmmProbabilities<GPXExtension, GPXEntry>(timeSteps, spatialMetrics, temporalMetrics, measurementErrorSigma, transitionProbabilityBeta);
         MostLikelySequence<GPXExtension, GPXEntry> seq = Hmm.computeMostLikelySequence(probabilities, timeSteps.iterator());
 
-        // every virtual edge maps to its real edge where the orientation is already correct!
-        // TODO use traversal key instead of string!
-        Map<String, EdgeIteratorState> virtualEdgesMap = new HashMap<String, EdgeIteratorState>();
-        final EdgeExplorer explorer = queryGraph.createEdgeExplorer(edgeFilter);
-        for (QueryResult candidate : allCandidates) {
-            fillVirtualEdges(virtualEdgesMap, explorer, candidate);
-        }
-
         List<EdgeMatch> edgeMatches = new ArrayList<EdgeMatch>();
         double distance = 0.0;
         long time = 0;
         if (!seq.isBroken) {
+            // every virtual edge maps to its real edge where the orientation is already correct!
+            // TODO use traversal key instead of string!
+            Map<String, EdgeIteratorState> virtualEdgesMap = new HashMap<String, EdgeIteratorState>();
+            final EdgeExplorer explorer = queryGraph.createEdgeExplorer(edgeFilter);
+            for (QueryResult candidate : allCandidates) {
+                fillVirtualEdges(virtualEdgesMap, explorer, candidate);
+            }
+
             EdgeIteratorState currentEdge = null;
             List<GPXExtension> gpxExtensions = new ArrayList<GPXExtension>();
             GPXExtension queryResult = seq.sequence.get(0);
@@ -244,7 +247,7 @@ public class MapMatching {
                 lastEdgeMatch.getGpxExtensions().addAll(gpxExtensions);
             }
         } else {
-            throw new RuntimeException("Sequence is broken for GPX with " + gpxList.size() + " points");
+            throw new RuntimeException("Sequence is broken for GPX with " + gpxList.size() + " points resulting in " + timeSteps.size() + " time steps");
         }
         MatchResult matchResult = new MatchResult(edgeMatches);
         matchResult.setMatchMillis(time);

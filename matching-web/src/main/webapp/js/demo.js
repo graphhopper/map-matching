@@ -42,8 +42,13 @@ function setup(map, mmClient) {
             $("#map-matching-response").text("calculate route match ...");
             $("#map-matching-error").text("");
 
+            var vehicle = $("#vehicle-input").val();
+            if (!vehicle)
+                vehicle = "car";
+            mmClient.vehicle = vehicle;
             mmClient.doRequest(content, function (json) {
                 if (json.message) {
+                    $("#map-matching-response").text("");
                     $("#map-matching-error").text(json.message);
                 } else if (json.paths && json.paths.length > 0) {
                     $("#map-matching-response").text("success");

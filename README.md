@@ -28,6 +28,7 @@ Then you need to import the area you want to do map-matching on:
 ```
 
 The parameter vehicle defines the routing profile like `bike`, `motorcycle` or `foot`. 
+You can also provide a comma separated list.
 For all supported values see the variables in the EncodingManager class of GraphHopper. 
 
 If you have already imported a datasource with a specific profile, you need to remove the folder graph-cache in your map-matching root directory.
