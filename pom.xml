@@ -53,12 +53,8 @@
         <url>https://github.com/graphhopper/map-matching/issues</url>
     </issueManagement>
     <modules>
-        <module>hmm-lib</module>
         <module>matching-core</module>
-        <module>matching-web</module>
-        <!--
-        <module>matching-vaadin</module>
-        -->
+        <module>matching-web</module>        
     </modules>
         
     <build>        
@@ -174,4 +170,14 @@
         </profile>
     </profiles>
     
+    <repositories>
+        <repository>
+            <id>hmm-lib-mvn-repo</id>
+            <url>https://raw.github.com/bmwcarit/hmm-lib/mvn-repo/</url>
+            <snapshots>
+                <enabled>true</enabled>
+                <updatePolicy>always</updatePolicy>
+            </snapshots>
+        </repository>  
+    </repositories>
 </project>

@@ -21,7 +21,7 @@
         <dependency>
             <groupId>com.graphhopper</groupId>
             <artifactId>graphhopper-reader-osm</artifactId>
-	    <version>${project.parent.version}</version>
+            <version>${project.parent.version}</version>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -40,9 +40,9 @@
             <version>${log4j.version}</version>
         </dependency>
         <dependency>
-            <groupId>de.bmw.hmm</groupId>
-            <artifactId>hmm</artifactId>
-            <version>0.2.0-SNAPSHOT</version>
+            <groupId>com.bmw.hmm_lib</groupId>
+            <artifactId>hmm-lib</artifactId>
+            <version>0.2.1-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>junit</groupId>
