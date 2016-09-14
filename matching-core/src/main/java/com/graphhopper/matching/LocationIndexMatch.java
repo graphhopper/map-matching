@@ -25,6 +25,9 @@ import com.graphhopper.storage.index.LocationIndexTree;
 import com.graphhopper.storage.index.QueryResult;
 import com.graphhopper.util.EdgeExplorer;
 import com.graphhopper.util.EdgeIteratorState;
+import com.graphhopper.util.shapes.BBox;
+import com.graphhopper.util.shapes.GHPoint;
+
 import gnu.trove.procedure.TIntProcedure;
 import gnu.trove.set.hash.TIntHashSet;
 import java.util.ArrayList;
@@ -52,95 +55,130 @@ public class LocationIndexMatch extends LocationIndexTree {
         this.index = index;
     }
 
-    public List<QueryResult> findNClosest(final double queryLat, final double queryLon, final EdgeFilter edgeFilter,
-            double gpxAccuracyInMetern) {
-        // Return ALL results which are very close and e.g. within the GPS signal accuracy.
-        // Also important to get all edges if GPS point is close to a junction.
-        final double returnAllResultsWithin = distCalc.calcNormalizedDist(gpxAccuracyInMetern);
+    /**
+     * This method finds all the edges which are within a radial distance from a given point.
+     * 
+     *  @param maxDistance edges must be maxDistance or less from (queryLat, queryLon)     *  
+     *  @return a list of such edges, sorted by the distance from the query point (closest first).
+     */
+    public List<QueryResult> findEdgesWithinRadius(final double queryLat, final double queryLon, final EdgeFilter edgeFilter, double maxDistance) {
+    	return findEdgesWithinRadius(queryLat, queryLon, edgeFilter, 0, maxDistance);
+    }
 
+    /**
+     * This method finds all the edges which are within a radial distance from a given point.
+     * 
+     *  @param minDistance edges must be minDistance or further from (queryLat, queryLon)
+     *  @param maxDistance edges must be maxDistance or less from (queryLat, queryLon)     *  
+     *  @return a list of such edges, sorted by the distance from the query point (closest first).
+     */
+    public List<QueryResult> findEdgesWithinRadius(final double queryLat, final double queryLon, final EdgeFilter edgeFilter, double minDistance, double maxDistance) {
+            	
+    	final double dLat = index.deltaLat;
+    	final double dLon = index.deltaLon;
+    	    	
         // implement a cheap priority queue via List, sublist and Collections.sort
         final List<QueryResult> queryResults = new ArrayList<QueryResult>();
-        TIntHashSet set = new TIntHashSet();
+        final TIntHashSet found = new TIntHashSet();
 
-        for (int iteration = 0; iteration < 2; iteration++) {
-            // should we use the return value of earlyFinish?
-            index.findNetworkEntries(queryLat, queryLon, set, iteration);
+        // get boundaries:
+        final GHPoint outerNorth = distCalc.projectCoordinate(queryLat, queryLon, maxDistance, 0);
+        final GHPoint outerEast = distCalc.projectCoordinate(queryLat, queryLon, maxDistance, 90);
+        final GHPoint outerSouth = distCalc.projectCoordinate(queryLat, queryLon, maxDistance, 180);
+        final GHPoint outerWest = distCalc.projectCoordinate(queryLat, queryLon, maxDistance, 270);
+        final double latMin = outerSouth.lat - dLat;
+        final double latMax = outerNorth.lat + dLat;
+        final double lonMin = outerWest.lon - dLon;
+        final double lonMax = outerEast.lon + dLon;
+        
+        // get the radii in normed units:
+        final double normedMinDistance = distCalc.calcNormalizedDist(minDistance);
+        final double normedMaxDistance = distCalc.calcNormalizedDist(maxDistance);
+        
+        // get the min/max allowed radii: we add/remove the max tile dimension (i.e. it's diagonal), as this means that
+        // we still get x, even in this case:
+        // 
+        // |-------|-------|
+        // | .     |      x|
+        // |     . |       |
+        // |       |.      |
+        // |-------|--.----|
+        // |       |   .   |
+        //
+        // where the dots represent the radius (with center somewhere down to left), and the x represents a valid point. That is, we still
+        // include the tile containing x, even though it's outside the radius.        
+        final double deltaR = distCalc.calcDist(queryLat, queryLon, queryLat + dLat, queryLon + dLon);
+        final double lowerBoundNormedMinDistance = distCalc.calcNormalizedDist(Math.max(0, minDistance - deltaR));
+        final double upperBoundNormedMaxDistance = distCalc.calcNormalizedDist(maxDistance + deltaR);
 
-            final GHBitSet exploredNodes = new GHTBitSet(new TIntHashSet(set));
-            final EdgeExplorer explorer = graph.createEdgeExplorer(edgeFilter);
+        // loop through tiles, and only consider those within minInner/maxOuter radius. If they are, add all
+        // the entries from that tile.
+        for (double lat = latMin; lat <= latMax; lat += dLat) {
+        	for (double lon = lonMin; lon <= lonMax; lon += dLon) {
+        		// find the points here if they're in bounds (including tolerance):
+        		double d = distCalc.calcNormalizedDist(queryLat, queryLon, lat, lon);
+        		if (lowerBoundNormedMinDistance < d && d < upperBoundNormedMaxDistance) {
+        			index.findNetworkEntriesSingleRegion(found, lat, lon);
+        		}
+        	}
+        }
+        
+        // now loop through and filter to only include those which match the edgeFilter, and are (exactly)
+        // within the inner/outer radius. 
+        final GHBitSet exploredNodes = new GHTBitSet(new TIntHashSet(found));
+        final EdgeExplorer explorer = graph.createEdgeExplorer(edgeFilter);
 
-            set.forEach(new TIntProcedure() {
+        found.forEach(new TIntProcedure() {
 
-                @Override
-                public boolean execute(int node) {
-                    new XFirstSearchCheck(queryLat, queryLon, exploredNodes, edgeFilter) {
-                        @Override
-                        protected double getQueryDistance() {
-                            // do not skip search if distance is 0 or near zero (equalNormedDelta)
-                            return Double.MAX_VALUE;
-                        }
+            @Override
+            public boolean execute(int node) {
+                new XFirstSearchCheck(queryLat, queryLon, exploredNodes, edgeFilter) {
+                    @Override
+                    protected double getQueryDistance() {
+                        // do not skip search if distance is 0 or near zero (equalNormedDelta)
+                        return Double.MAX_VALUE;
+                    }
 
-                        @Override
-                        protected boolean check(int node, double normedDist, int wayIndex, EdgeIteratorState edge, QueryResult.Position pos) {
-                            if (normedDist < returnAllResultsWithin
-                                    || queryResults.isEmpty()
-                                    || queryResults.get(0).getQueryDistance() > normedDist) {
-
-                                int index = -1;
-                                for (int qrIndex = 0; qrIndex < queryResults.size(); qrIndex++) {
-                                    QueryResult qr = queryResults.get(qrIndex);
-                                    // overwrite older queryResults which are potentially more far away than returnAllResultsWithin
-                                    if (qr.getQueryDistance() > returnAllResultsWithin) {
-                                        index = qrIndex;
-                                        break;
-                                    }
-
-                                    // avoid duplicate edges
-                                    if (qr.getClosestEdge().getEdge() == edge.getEdge()) {
-                                        if (qr.getQueryDistance() < normedDist) {
-                                            // do not add current edge
-                                            return true;
-                                        } else {
-                                            // overwrite old edge with current
-                                            index = qrIndex;
-                                            break;
-                                        }
-                                    }
-                                }
-
-                                QueryResult qr = new QueryResult(queryLat, queryLon);
-                                qr.setQueryDistance(normedDist);
-                                qr.setClosestNode(node);
-                                qr.setClosestEdge(edge.detach(false));
-                                qr.setWayIndex(wayIndex);
-                                qr.setSnappedPosition(pos);
-
-                                if (index < 0) {
-                                    queryResults.add(qr);
-                                } else {
-                                    queryResults.set(index, qr);
+                    @Override
+                    protected boolean check(int node, double normedDist, int wayIndex, EdgeIteratorState edge, QueryResult.Position pos) {                    	
+                        if (normedMinDistance <= normedDist && normedDist <= normedMaxDistance) {
+                        	
+                        	// check we don't already have it:
+                            for (int qrIndex = 0; qrIndex < queryResults.size(); qrIndex++) {
+                                QueryResult qr = queryResults.get(qrIndex);
+                                if (qr.getClosestEdge().getEdge() == edge.getEdge()) {
+                                	return true;
                                 }
                             }
-                            return true;
-                        }
-                    }.start(explorer, node);
-                    return true;
-                }
-            });
-        }
 
+                            // cool, let's add it:
+                            QueryResult qr = new QueryResult(queryLat, queryLon);
+                            qr.setQueryDistance(normedDist);
+                            qr.setClosestNode(node);
+                            qr.setClosestEdge(edge.detach(false));
+                            qr.setWayIndex(wayIndex);
+                            qr.setSnappedPosition(pos);
+                            queryResults.add(qr);
+                        }
+                        return true;
+                    }
+                }.start(explorer, node);
+                return true;
+            }
+        });
+
+        // sorted list:
         Collections.sort(queryResults, QR_COMPARATOR);
 
+        // denormalize distances and calculate the snapped point:
         for (QueryResult qr : queryResults) {
             if (qr.isValid()) {
-                // denormalize distance
                 qr.setQueryDistance(distCalc.calcDenormalizedDist(qr.getQueryDistance()));
                 qr.calcSnappedPoint(distCalc);
             } else {
                 throw new IllegalStateException("Invalid QueryResult should not happen here: " + qr);
             }
         }
-
         return queryResults;
     }
 }

@@ -29,6 +29,7 @@ import com.graphhopper.storage.NodeAccess;
 import com.graphhopper.storage.index.LocationIndex;
 import com.graphhopper.storage.index.LocationIndexTree;
 import com.graphhopper.util.BreadthFirstSearch;
+import com.graphhopper.util.DistanceCalcEarth;
 import com.graphhopper.util.EdgeExplorer;
 import com.graphhopper.util.EdgeIteratorState;
 import com.graphhopper.util.GPXEntry;
@@ -81,9 +82,10 @@ public class MapMatchingTest {
                 (LocationIndexTree) HOPPER.getLocationIndex());
 
         MapMatching mapMatching = new MapMatching(graph, locationIndex, ENCODER);
-        // mapMatching.setMeasurementErrorSigma(5);
+        mapMatching.setMeasurementErrorSigma(5);
 
         // printOverview(graph, hopper.getLocationIndex(), 51.358735, 12.360574, 500);
+        // https://graphhopper.com/maps/?point=51.358735%2C12.360574&point=51.358594%2C12.360032&layer=Lyrk
         List<GPXEntry> inputGPXEntries = createRandomGPXEntries(
                 new GHPoint(51.358735, 12.360574),
                 new GHPoint(51.358594, 12.360032));
@@ -110,6 +112,7 @@ public class MapMatchingTest {
         assertEquals(il.toString(), 2, il.size());
         assertEquals("Platnerstraße", il.get(0).getName());
 
+        // https://graphhopper.com/maps/?point=51.33099%2C12.380267&point=51.330689%2C12.380776&layer=Lyrk
         inputGPXEntries = createRandomGPXEntries(
                 new GHPoint(51.33099, 12.380267),
                 new GHPoint(51.330689, 12.380776));
@@ -131,16 +134,15 @@ public class MapMatchingTest {
         assertEquals("Bayrischer Platz", il.get(1).getName());
 
         // full path
+        // https://graphhopper.com/maps/?point=51.377781%2C12.338333&point=51.323317%2C12.387085&layer=Lyrk
         inputGPXEntries = createRandomGPXEntries(
                 new GHPoint(51.377781, 12.338333),
                 new GHPoint(51.323317, 12.387085));
         mapMatching = new MapMatching(graph, locationIndex, ENCODER);
-        mapMatching.setMeasurementErrorSigma(20);
+        mapMatching.setMeasurementErrorSigma(5);
         // new GPXFile(inputGPXEntries).doExport("test-input.gpx");
         mr = mapMatching.doWork(inputGPXEntries);
         // new GPXFile(mr).doExport("test.gpx");
-
-        // System.out.println(fetchStreets(mr.getEdgeMatches()));
         assertEquals(mr.getGpxEntriesLength(), mr.getMatchLength(), 0.5);
         assertEquals(mr.getGpxEntriesMillis(), mr.getMatchMillis(), 200);
         assertEquals(138, mr.getEdgeMatches().size());
@@ -155,18 +157,29 @@ public class MapMatchingTest {
         LocationIndexMatch locationIndex = new LocationIndexMatch(graph,
                 (LocationIndexTree) HOPPER.getLocationIndex());
 
-        // import sample where two GPX entries are on one edge which is longer than 'separatedSearchDistance' aways (66m)
-        // https://graphhopper.com/maps/?point=51.359723%2C12.360108&point=51.358748%2C12.358798&point=51.358001%2C12.357597&point=51.358709%2C12.356511&layer=Lyrk
-        List<GPXEntry> inputGPXEntries = new GPXFile().doImport("./src/test/resources/tour3-with-long-edge.gpx").getEntries();
-        // TODO match at Weinlingstraße instead of following small part of Marbachstraße
         MapMatching mapMatching = new MapMatching(graph, locationIndex, ENCODER);
-        mapMatching.setMeasurementErrorSigma(20);
+        
+        // import sample where two GPX entries are on one edge which is longer than 'separatedSearchDistance' aways (66m)
+        // https://graphhopper.com/maps/?point=51.359723%2C12.360108&point=51.359621%2C12.360243&point=51.358591%2C12.358584&point=51.358189%2C12.357876&point=51.358007%2C12.357403&point=51.358627%2C12.356612&point=51.358709%2C12.356511&locale=en-GB&vehicle=car&weighting=fastest&elevation=true&use_miles=false&layer=Lyrk
+        List<GPXEntry> inputGPXEntries = new GPXFile().doImport("./src/test/resources/tour3-with-long-edge.gpx").getEntries();
+        
+        // fuzzy match: we exclude the endpoints with large sigma:        
+        mapMatching.setMeasurementErrorSigma(50);
         MatchResult mr = mapMatching.doWork(inputGPXEntries);
-        assertEquals(Arrays.asList("Weinligstraße", "Weinligstraße",
-                "Weinligstraße", "Fechnerstraße", "Fechnerstraße"),
+        assertEquals(Arrays.asList("Weinligstraße", "Weinligstraße", "Fechnerstraße"),
+                fetchStreets(mr.getEdgeMatches()));
+        assertEquals(mr.getGpxEntriesLength(), mr.getMatchLength(), 16);
+        assertEquals(mr.getGpxEntriesMillis(), mr.getMatchMillis(), 4500);
+
+        // more exact match: include the endpoints:
+        mapMatching.setMeasurementErrorSigma(5);
+        mr = mapMatching.doWork(inputGPXEntries);
+        assertEquals(Arrays.asList("Marbachstraße", "Weinligstraße", "Weinligstraße",
+        		"Fechnerstraße", "Fechnerstraße"),
                 fetchStreets(mr.getEdgeMatches()));
         assertEquals(mr.getGpxEntriesLength(), mr.getMatchLength(), 11);
         assertEquals(mr.getGpxEntriesMillis(), mr.getMatchMillis(), 3000);
+        
     }
 
     @Test
@@ -179,10 +192,11 @@ public class MapMatchingTest {
         // printOverview(graph, hopper.getLocationIndex(), 51.345796,12.360681, 1000);
         // https://graphhopper.com/maps/?point=51.343657%2C12.360708&point=51.344982%2C12.364066&point=51.344841%2C12.361223&point=51.342781%2C12.361867&layer=Lyrk
         List<GPXEntry> inputGPXEntries = new GPXFile().doImport("./src/test/resources/tour2-with-loop.gpx").getEntries();
+        mapMatching.setMeasurementErrorSigma(20);
         MatchResult mr = mapMatching.doWork(inputGPXEntries);
         // new GPXFile(mr).doExport("testLoop-matched.gpx");
 
-        // Expected is ~800m. If too short like 166m then the loop was skipped        
+        // Expected is ~800m. If too short like 166m then the loop was skipped    
         assertEquals(Arrays.asList("Gustav-Adolf-Straße", "Gustav-Adolf-Straße",
                 "Gustav-Adolf-Straße", "Leibnizstraße", "Hinrichsenstraße",
                 "Hinrichsenstraße", "Tschaikowskistraße", "Tschaikowskistraße"),
@@ -198,8 +212,8 @@ public class MapMatchingTest {
         LocationIndexMatch locationIndex = new LocationIndexMatch(graph,
                 (LocationIndexTree) HOPPER.getLocationIndex());
         MapMatching mapMatching = new MapMatching(graph, locationIndex, ENCODER);
-        // TODO smaller sigma like 40m leads to U-turn at Tschaikowskistraße
-        mapMatching.setMeasurementErrorSigma(50);
+        // NOTE: larger sigma leads to odd route - it looks like the map is incorrect when compared to Google Maps.
+        mapMatching.setMeasurementErrorSigma(20);
         // https://graphhopper.com/maps/?point=51.342439%2C12.361615&point=51.343719%2C12.362784&point=51.343933%2C12.361781&point=51.342325%2C12.362607&layer=Lyrk
         List<GPXEntry> inputGPXEntries = new GPXFile().doImport("./src/test/resources/tour-with-loop.gpx").getEntries();
         MatchResult mr = mapMatching.doWork(inputGPXEntries);
@@ -219,13 +233,13 @@ public class MapMatchingTest {
 
         // https://graphhopper.com/maps/?point=51.343618%2C12.360772&point=51.34401%2C12.361776&point=51.343977%2C12.362886&point=51.344734%2C12.36236&point=51.345233%2C12.362055&layer=Lyrk
         List<GPXEntry> inputGPXEntries = new GPXFile().doImport("./src/test/resources/tour4-with-uturn.gpx").getEntries();
+        
+        // exclude U-turn
         mapMatching.setMeasurementErrorSigma(50);
         MatchResult mr = mapMatching.doWork(inputGPXEntries);
-        assertEquals(Arrays.asList("Gustav-Adolf-Straße", "Gustav-Adolf-Straße",
-                "Funkenburgstraße", "Funkenburgstraße"),
-                fetchStreets(mr.getEdgeMatches()));
-
-        // inclusive U-turn
+        assertEquals(Arrays.asList("Gustav-Adolf-Straße", "Gustav-Adolf-Straße", "Funkenburgstraße"), fetchStreets(mr.getEdgeMatches()));
+                
+        // include U-turn
         mapMatching.setMeasurementErrorSigma(10);
         mr = mapMatching.doWork(inputGPXEntries);
         assertEquals(Arrays.asList("Gustav-Adolf-Straße", "Gustav-Adolf-Straße",

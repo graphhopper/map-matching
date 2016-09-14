@@ -145,7 +145,7 @@ public class MapMatching {
                     || distanceCalc.calcDist(previous.getLat(), previous.getLon(), entry.getLat(), entry.getLon()) > 2 * measurementErrorSigma
                     // always include last point
                     || indexGPX == gpxList.size() - 1) {
-                List<QueryResult> candidates = locationIndex.findNClosest(entry.lat, entry.lon, edgeFilter, measurementErrorSigma);
+                List<QueryResult> candidates = locationIndex.findEdgesWithinRadius(entry.lat, entry.lon, edgeFilter, measurementErrorSigma);
                 allCandidates.addAll(candidates);
                 List<GPXExtension> gpxExtensions = new ArrayList<GPXExtension>();
                 for (QueryResult candidate : candidates) {
