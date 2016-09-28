@@ -63,34 +63,34 @@ public class MapMatching {
 
     private final Graph graph;
     private final LocationIndexMatch locationIndex;
-	private final FlagEncoder encoder;
+    private final FlagEncoder encoder;
     private double measurementErrorSigma = 50.0;
     private double transitionProbabilityBeta = 0.00959442;
     private final int nodeCount;
     private DistanceCalc distanceCalc = new DistancePlaneProjection();
-	private RoutingAlgorithmFactory algoFactory;
-	private AlgorithmOptions algoOptions;
-	private Weighting weighting;
-	
+    private RoutingAlgorithmFactory algoFactory;
+    private AlgorithmOptions algoOptions;
+    private Weighting weighting;
 
     public MapMatching(GraphHopper hopper, AlgorithmOptions algoOptions) {
-    	
-    	this.locationIndex = new LocationIndexMatch(hopper.getGraphHopperStorage(), (LocationIndexTree) hopper.getLocationIndex());
-    	this.encoder = algoOptions.getFlagEncoder();
-    	this.weighting = algoOptions.getWeighting();
-    	// get base graph, which differs depending on CH:
-    	this.graph = hopper.getGraphHopperStorage().getGraph((hopper.isCHEnabled() ? CHGraph.class : Graph.class), this.weighting);
-    	this.nodeCount = graph.getNodes();
+        this.locationIndex = new LocationIndexMatch(hopper.getGraphHopperStorage(),
+                (LocationIndexTree) hopper.getLocationIndex());
+        this.encoder = algoOptions.getFlagEncoder();
+        this.weighting = algoOptions.getWeighting();
+        // get base graph, which differs depending on CH:
+        this.graph = hopper.getGraphHopperStorage()
+                .getGraph((hopper.isCHEnabled() ? CHGraph.class : Graph.class), this.weighting);
+        this.nodeCount = graph.getNodes();
         this.algoOptions = algoOptions;
         // create hints from algoOptions, so we can create the algorithm factory
-    	PMap pmap = algoOptions.getHints();
-    	HintsMap hints = new HintsMap();    	
-    	for (String k: pmap.toMap().keySet()) {
-    		hints.put(k, pmap.get(k, null));
-    	}
-        this.algoFactory = hopper.getAlgorithmFactory(hints);   
+        PMap pmap = algoOptions.getHints();
+        HintsMap hints = new HintsMap();
+        for (String k : pmap.toMap().keySet()) {
+            hints.put(k, pmap.get(k, null));
+        }
+        this.algoFactory = hopper.getAlgorithmFactory(hints);
     }
-    
+
     public void setDistanceCalc(DistanceCalc distanceCalc) {
         this.distanceCalc = distanceCalc;
     }
@@ -112,20 +112,12 @@ public class MapMatching {
     }
 
     /**
-     * @deprecated use `match` instead.
-     */
-    @Deprecated
-    public MatchResult doWork(List<GPXEntry> gpxList) {
-    	return match(gpxList);
-    }
-
-    /**
      * This method does the actual map matching.
      * <p>
      * @param gpxList the input list with GPX points which should match to edges
      * of the graph specified in the constructor
      */
-    public MatchResult match(List<GPXEntry> gpxList) {
+    public MatchResult doWork(List<GPXEntry> gpxList) {
         if (gpxList.size() < 2) {
             throw new IllegalArgumentException("Too few coordinates in input file ("
                     + gpxList.size() + "). Correct format?");
@@ -268,15 +260,14 @@ public class MapMatching {
                 (timeStep.observation.getTime() - prevTimeStep.observation.getTime()) / 1000.0;
 
         for (GPXExtension from : prevTimeStep.candidates) {
-        	for (GPXExtension to : timeStep.candidates) {
+            for (GPXExtension to : timeStep.candidates) {
                 RoutingAlgorithm algo = algoFactory.createAlgo(queryGraph, algoOptions);
                 final Path path = algo.calcPath(from.getQueryResult().getClosestNode(),
                         to.getQueryResult().getClosestNode());
                 if (path.isFound()) {
                     timeStep.addRoadPath(from, to, path);
-                    final double transitionLogProbability =
-                            probabilities.transitionLogProbability(path.getDistance(),
-                            linearDistance, timeDiff);
+                    final double transitionLogProbability = probabilities
+                            .transitionLogProbability(path.getDistance(), linearDistance, timeDiff);
                     timeStep.addTransitionLogProbability(from, to, transitionLogProbability);
                 }
             }

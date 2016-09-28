@@ -86,7 +86,7 @@ public class MapMatchingMain {
             		algorithm(Parameters.Algorithms.DIJKSTRA_BI).traversalMode(hopper.getTraversalMode()).
                     flagEncoder(firstEncoder).weighting(new FastestWeighting(firstEncoder)).
                     maxVisitedNodes(args.getInt("max_visited_nodes", 1000)).
-                    hints(new HintsMap().put("weighting", "fastest").put("vehicle", "car")).
+                    hints(new HintsMap().put("weighting", "fastest").put("vehicle", firstEncoder.getClass().getName())).
                     build();
             MapMatching mapMatching = new MapMatching(hopper, opts);
             mapMatching.setTransitionProbabilityBeta(args.getDouble("transition_probability_beta", 0.00959442));
@@ -108,7 +108,7 @@ public class MapMatchingMain {
                     List<GPXEntry> inputGPXEntries = new GPXFile().doImport(gpxFile.getAbsolutePath()).getEntries();
                     importSW.stop();
                     matchSW.start();
-                    MatchResult mr = mapMatching.match(inputGPXEntries);
+                    MatchResult mr = mapMatching.doWork(inputGPXEntries);
                     matchSW.stop();
                     System.out.println(gpxFile);
                     System.out.println("\tmatches:\t" + mr.getEdgeMatches().size() + ", gps entries:" + inputGPXEntries.size());

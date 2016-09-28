@@ -19,19 +19,16 @@ package com.graphhopper.matching;
 
 import com.graphhopper.GHRequest;
 import com.graphhopper.GHResponse;
-import com.graphhopper.GraphHopper;
 import com.graphhopper.PathWrapper;
 import com.graphhopper.reader.osm.GraphHopperOSM;
 import com.graphhopper.routing.AlgorithmOptions;
 import com.graphhopper.routing.Path;
 import com.graphhopper.routing.util.*;
 import com.graphhopper.routing.weighting.FastestWeighting;
-import com.graphhopper.storage.CHGraph;
-import com.graphhopper.storage.Graph;
+import com.graphhopper.routing.weighting.Weighting;
 import com.graphhopper.storage.GraphHopperStorage;
 import com.graphhopper.storage.NodeAccess;
 import com.graphhopper.storage.index.LocationIndex;
-import com.graphhopper.storage.index.LocationIndexTree;
 import com.graphhopper.util.BreadthFirstSearch;
 import com.graphhopper.util.EdgeExplorer;
 import com.graphhopper.util.EdgeIteratorState;
@@ -48,14 +45,9 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
-
-import org.junit.AfterClass;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -63,77 +55,78 @@ import org.junit.runners.Parameterized;
 /**
  *
  * @author Peter Karich
+ * @author kodonnell
  */
 
 @RunWith(Parameterized.class)
 public class MapMatchingTest {
 
     public final static TranslationMap SINGLETON = new TranslationMap().doImport();
-    
+
     // parameterize:
     private TestGraphHopper hopper;
-    private AlgorithmOptions algoOption; 
-    public MapMatchingTest(TestGraphHopper hopper, AlgorithmOptions algoOption) {
-    	this.algoOption = algoOption;
-    	this.hopper = hopper;
+    private AlgorithmOptions algoOption;
+
+    public MapMatchingTest(String name, TestGraphHopper hopper, AlgorithmOptions algoOption) {
+        this.algoOption = algoOption;
+        this.hopper = hopper;
     }
-    
-    @Parameterized.Parameters
+
+    @Parameterized.Parameters(name="{0}")
     public static Collection algoOptions() {
 
         // CH:
-    	CarFlagEncoder CHEncoder = new CarFlagEncoder();
-    	TestGraphHopper CHHopper = new TestGraphHopper();
-    	CHHopper.setDataReaderFile("../map-data/leipzig_germany.osm.pbf");
-    	CHHopper.setGraphHopperLocation("../target/mapmatchingtest-ch");
-    	CHHopper.setEncodingManager(new EncodingManager(CHEncoder));
-    	CHHopper.getCHFactoryDecorator().setEnabled(true);
-    	CHHopper.importOrLoad();
-    	AlgorithmOptions CHOpts = AlgorithmOptions.start().
-    		algorithm(Parameters.Algorithms.DIJKSTRA_BI).traversalMode(CHHopper.getTraversalMode()).
-            flagEncoder(CHEncoder).weighting(new FastestWeighting(CHEncoder)).
-            maxVisitedNodes(1000).
-            hints(new HintsMap().put("weighting", "fastest").put("vehicle", "car")).
-            build();
-        
+        CarFlagEncoder CHEncoder = new CarFlagEncoder();
+        TestGraphHopper CHHopper = new TestGraphHopper();
+        CHHopper.setDataReaderFile("../map-data/leipzig_germany.osm.pbf");
+        CHHopper.setGraphHopperLocation("../target/mapmatchingtest-ch");
+        CHHopper.setEncodingManager(new EncodingManager(CHEncoder));
+        CHHopper.getCHFactoryDecorator().setEnabled(true);
+        CHHopper.importOrLoad();
+        AlgorithmOptions CHOpts = AlgorithmOptions.start()
+                .algorithm(Parameters.Algorithms.DIJKSTRA_BI)
+                .traversalMode(CHHopper.getTraversalMode()).flagEncoder(CHEncoder)
+                .weighting(CHHopper.getCHFactoryDecorator().getWeightings().get(0))
+                .maxVisitedNodes(1000)
+                .hints(new HintsMap().put("weighting", "fastest").put("vehicle", "car")).build();
+
         // flexible:
-    	CarFlagEncoder FlexibleEncoder = new CarFlagEncoder();
-    	TestGraphHopper FlexibleHopper = new TestGraphHopper();
-    	FlexibleHopper.setDataReaderFile("../map-data/leipzig_germany.osm.pbf");
-    	FlexibleHopper.setGraphHopperLocation("../target/mapmatchingtest-flexible");
-    	FlexibleHopper.setEncodingManager(new EncodingManager(FlexibleEncoder));
-    	FlexibleHopper.getCHFactoryDecorator().setEnabled(false);
-    	FlexibleHopper.importOrLoad();
-    	AlgorithmOptions FlexibleOpts = AlgorithmOptions.start().
-    		algorithm(Parameters.Algorithms.DIJKSTRA_BI).traversalMode(FlexibleHopper.getTraversalMode()).
-            flagEncoder(FlexibleEncoder).weighting(new FastestWeighting(FlexibleEncoder)).
-            maxVisitedNodes(1000).
-            hints(new HintsMap().put("weighting", "fastest").put("vehicle", "car")).
-            build();
+        CarFlagEncoder FlexibleEncoder = new CarFlagEncoder();
+        TestGraphHopper FlexibleHopper = new TestGraphHopper();
+        FlexibleHopper.setDataReaderFile("../map-data/leipzig_germany.osm.pbf");
+        FlexibleHopper.setGraphHopperLocation("../target/mapmatchingtest-flexible");
+        FlexibleHopper.setEncodingManager(new EncodingManager(FlexibleEncoder));
+        FlexibleHopper.getCHFactoryDecorator().setEnabled(false);
+        FlexibleHopper.importOrLoad();
+        AlgorithmOptions FlexibleOpts = AlgorithmOptions.start()
+                .algorithm(Parameters.Algorithms.DIJKSTRA_BI)
+                .traversalMode(FlexibleHopper.getTraversalMode()).flagEncoder(FlexibleEncoder)
+                .weighting(new FastestWeighting(FlexibleEncoder)).maxVisitedNodes(1000)
+                .hints(new HintsMap().put("weighting", "fastest").put("vehicle", "car")).build();
 
-     	return Arrays.asList(new Object[][] {
-     		{CHHopper, CHOpts},
-     		{FlexibleHopper, FlexibleOpts} 		
-     	});
+        return Arrays.asList(new Object[][] {
+            { "CH", CHHopper, CHOpts },
+            { "non-CH", FlexibleHopper, FlexibleOpts } 
+            });
     }
-
 
     /**
      * TODO: split this test up into smaller units with better names?
      */
     @Test
     public void testDoWork() {
-    	        
+
         MapMatching mapMatching = new MapMatching(hopper, algoOption);
         List<GPXEntry> inputGPXEntries = createRandomGPXEntries(
                 new GHPoint(51.358735, 12.360574),
                 new GHPoint(51.358594, 12.360032));
-        MatchResult mr = mapMatching.match(inputGPXEntries);
+        MatchResult mr = mapMatching.doWork(inputGPXEntries);
 
         // make sure no virtual edges are returned
         int edgeCount = hopper.getGraphHopperStorage().getAllEdges().getMaxId();
         for (EdgeMatch em : mr.getEdgeMatches()) {
-            assertTrue("result contains virtual edges:" + em.getEdgeState().toString(), em.getEdgeState().getEdge() < edgeCount);
+            assertTrue("result contains virtual edges:" + em.getEdgeState().toString(),
+                    em.getEdgeState().getEdge() < edgeCount);
         }
 
         // create street names
@@ -153,11 +146,10 @@ public class MapMatchingTest {
         inputGPXEntries = createRandomGPXEntries(
                 new GHPoint(51.33099, 12.380267),
                 new GHPoint(51.330689, 12.380776));
-        mr = mapMatching.match(inputGPXEntries);
+        mr = mapMatching.doWork(inputGPXEntries);
 
-        assertEquals(Arrays.asList("Windmühlenstraße", "Windmühlenstraße",
-                "Bayrischer Platz", "Bayrischer Platz", "Bayrischer Platz"),
-                fetchStreets(mr.getEdgeMatches()));
+        assertEquals(Arrays.asList("Windmühlenstraße", "Windmühlenstraße", "Bayrischer Platz",
+                "Bayrischer Platz", "Bayrischer Platz"), fetchStreets(mr.getEdgeMatches()));
         assertEquals(mr.getGpxEntriesLength(), mr.getMatchLength(), .1);
         assertEquals(mr.getGpxEntriesMillis(), mr.getMatchMillis(), 1);
 
@@ -176,7 +168,7 @@ public class MapMatchingTest {
                 new GHPoint(51.323317, 12.387085));
         mapMatching = new MapMatching(hopper, algoOption);
         mapMatching.setMeasurementErrorSigma(20);
-        mr = mapMatching.match(inputGPXEntries);
+        mr = mapMatching.doWork(inputGPXEntries);
 
         assertEquals(mr.getGpxEntriesLength(), mr.getMatchLength(), 0.5);
         assertEquals(mr.getGpxEntriesMillis(), mr.getMatchMillis(), 200);
@@ -187,38 +179,40 @@ public class MapMatchingTest {
     }
 
     /**
-     * This test is to check behavior over large separated routes: it should work if the 
-     * user sets the maxVisitedNodes large enough. Input path:
+     * This test is to check behavior over large separated routes: it should work if the user sets
+     * the maxVisitedNodes large enough. Input path:
      * https://graphhopper.com/maps/?point=51.23%2C12.18&point=51.45%2C12.59&layer=Lyrk
      */
     @Test
     public void testDistantPoints() {
-    	
+
         // OK with 1000 visited nodes:
         MapMatching mapMatching = new MapMatching(hopper, algoOption);
         List<GPXEntry> inputGPXEntries = createRandomGPXEntries(
                 new GHPoint(51.23, 12.18),
                 new GHPoint(51.45, 12.59));
-        MatchResult mr = mapMatching.match(inputGPXEntries);
+        MatchResult mr = mapMatching.doWork(inputGPXEntries);
         assertEquals(mr.getMatchLength(), 57653, 1);
         assertEquals(mr.getMatchMillis(), 2748186, 1);
-        
+
         // not OK when we only allow a small number of visited nodes:
         FlagEncoder car = hopper.getEncodingManager().getEncoder("car");
-        AlgorithmOptions opts = AlgorithmOptions.start().
-        		algorithm(Parameters.Algorithms.DIJKSTRA_BI).traversalMode(hopper.getTraversalMode()).
-                flagEncoder(car).weighting(new FastestWeighting(car)).maxVisitedNodes(1).
-                hints(new HintsMap().put("weighting", "fastest").put("vehicle", "car")).
-                build();
+        Weighting w = hopper.isCHEnabled() ? hopper.getCHFactoryDecorator().getWeightings().get(0)
+                : new FastestWeighting(car);
+        AlgorithmOptions opts = AlgorithmOptions.start()
+                .algorithm(Parameters.Algorithms.DIJKSTRA_BI)
+                .traversalMode(hopper.getTraversalMode()).flagEncoder(car).weighting(w)
+                .maxVisitedNodes(1)
+                .hints(new HintsMap().put("weighting", "fastest").put("vehicle", "car")).build();
         mapMatching = new MapMatching(hopper, opts);
         try {
-        	mr = mapMatching.match(inputGPXEntries);
-        	fail("Expected sequence to be broken due to maxVisitedNodes being too small");
+            mr = mapMatching.doWork(inputGPXEntries);
+            fail("Expected sequence to be broken due to maxVisitedNodes being too small");
         } catch (RuntimeException e) {
-        	assertTrue(e.getMessage().startsWith("Sequence is broken for submitted track"));
+            assertTrue(e.getMessage().startsWith("Sequence is broken for submitted track"));
         }
     }
-    
+
     /**
      * This test is to check what happens when two GPX entries are on one edge which is longer than
      * 'separatedSearchDistance' - which is always 66m. GPX input:
@@ -226,13 +220,13 @@ public class MapMatchingTest {
      */
     @Test
     public void testSmallSeparatedSearchDistance() {
-        List<GPXEntry> inputGPXEntries = new GPXFile().doImport("./src/test/resources/tour3-with-long-edge.gpx").getEntries();
+        List<GPXEntry> inputGPXEntries = new GPXFile()
+                .doImport("./src/test/resources/tour3-with-long-edge.gpx").getEntries();
         MapMatching mapMatching = new MapMatching(hopper, algoOption);
         mapMatching.setMeasurementErrorSigma(20);
-        MatchResult mr = mapMatching.match(inputGPXEntries);
-        assertEquals(Arrays.asList("Weinligstraße", "Weinligstraße",
-                "Weinligstraße", "Fechnerstraße", "Fechnerstraße"),
-                fetchStreets(mr.getEdgeMatches()));
+        MatchResult mr = mapMatching.doWork(inputGPXEntries);
+        assertEquals(Arrays.asList("Weinligstraße", "Weinligstraße", "Weinligstraße",
+                "Fechnerstraße", "Fechnerstraße"), fetchStreets(mr.getEdgeMatches()));
         assertEquals(mr.getGpxEntriesLength(), mr.getMatchLength(), 11);
         assertEquals(mr.getGpxEntriesMillis(), mr.getMatchMillis(), 3000);
     }
@@ -244,11 +238,13 @@ public class MapMatchingTest {
     @Test
     public void testLoop() {
         MapMatching mapMatching = new MapMatching(hopper, algoOption);
-        List<GPXEntry> inputGPXEntries = new GPXFile().doImport("./src/test/resources/tour2-with-loop.gpx").getEntries();
-        MatchResult mr = mapMatching.match(inputGPXEntries);        
-        assertEquals(Arrays.asList("Gustav-Adolf-Straße", "Gustav-Adolf-Straße",
-                "Gustav-Adolf-Straße", "Leibnizstraße", "Hinrichsenstraße",
-                "Hinrichsenstraße", "Tschaikowskistraße", "Tschaikowskistraße"),
+        List<GPXEntry> inputGPXEntries = new GPXFile()
+                .doImport("./src/test/resources/tour2-with-loop.gpx").getEntries();
+        MatchResult mr = mapMatching.doWork(inputGPXEntries);
+        assertEquals(
+                Arrays.asList("Gustav-Adolf-Straße", "Gustav-Adolf-Straße", "Gustav-Adolf-Straße",
+                        "Leibnizstraße", "Hinrichsenstraße", "Hinrichsenstraße",
+                        "Tschaikowskistraße", "Tschaikowskistraße"),
                 fetchStreets(mr.getEdgeMatches()));
         assertEquals(mr.getGpxEntriesLength(), mr.getMatchLength(), 5);
         // TODO why is there such a big difference for millis?
@@ -264,38 +260,38 @@ public class MapMatchingTest {
         MapMatching mapMatching = new MapMatching(hopper, algoOption);
         // TODO smaller sigma like 40m leads to U-turn at Tschaikowskistraße
         mapMatching.setMeasurementErrorSigma(50);
-        List<GPXEntry> inputGPXEntries = new GPXFile().doImport("./src/test/resources/tour-with-loop.gpx").getEntries();
-        MatchResult mr = mapMatching.match(inputGPXEntries);
+        List<GPXEntry> inputGPXEntries = new GPXFile()
+                .doImport("./src/test/resources/tour-with-loop.gpx").getEntries();
+        MatchResult mr = mapMatching.doWork(inputGPXEntries);
         assertEquals(Arrays.asList("Jahnallee, B 87, B 181", "Jahnallee, B 87, B 181",
                 "Jahnallee, B 87, B 181", "Jahnallee, B 87, B 181", "Funkenburgstraße",
                 "Gustav-Adolf-Straße", "Tschaikowskistraße", "Jahnallee, B 87, B 181",
-                "Lessingstraße", "Lessingstraße"),
-                fetchStreets(mr.getEdgeMatches()));
+                "Lessingstraße", "Lessingstraße"), fetchStreets(mr.getEdgeMatches()));
     }
-    
+
     /**
-     * This test is to check that U-turns are avoided when it's just measurement
-     * error, though do occur when a point goes up a road further than the measurement
-     * error. GPX input:
+     * This test is to check that U-turns are avoided when it's just measurement error, though do
+     * occur when a point goes up a road further than the measurement error. GPX input:
      * https://graphhopper.com/maps/?point=51.343618%2C12.360772&point=51.34401%2C12.361776&point=51.343977%2C12.362886&point=51.344734%2C12.36236&point=51.345233%2C12.362055&layer=Lyrk
      */
     @Test
     public void testUTurns() {
         MapMatching mapMatching = new MapMatching(hopper, algoOption);
-        List<GPXEntry> inputGPXEntries = new GPXFile().doImport("./src/test/resources/tour4-with-uturn.gpx").getEntries();
-        
+        List<GPXEntry> inputGPXEntries = new GPXFile()
+                .doImport("./src/test/resources/tour4-with-uturn.gpx").getEntries();
+
         // with large measurement error, we expect no U-turn
         mapMatching.setMeasurementErrorSigma(50);
-        MatchResult mr = mapMatching.match(inputGPXEntries);
-        assertEquals(Arrays.asList("Gustav-Adolf-Straße", "Gustav-Adolf-Straße",
-                "Funkenburgstraße", "Funkenburgstraße"),
-                fetchStreets(mr.getEdgeMatches()));
+        MatchResult mr = mapMatching.doWork(inputGPXEntries);
+        assertEquals(Arrays.asList("Gustav-Adolf-Straße", "Gustav-Adolf-Straße", "Funkenburgstraße",
+                "Funkenburgstraße"), fetchStreets(mr.getEdgeMatches()));
 
         // with small measurement error, we expect the U-turn
         mapMatching.setMeasurementErrorSigma(10);
-        mr = mapMatching.match(inputGPXEntries);
-        assertEquals(Arrays.asList("Gustav-Adolf-Straße", "Gustav-Adolf-Straße",
-                "Funkenburgstraße", "Funkenburgstraße", "Funkenburgstraße", "Funkenburgstraße"),
+        mr = mapMatching.doWork(inputGPXEntries);
+        assertEquals(
+                Arrays.asList("Gustav-Adolf-Straße", "Gustav-Adolf-Straße", "Funkenburgstraße",
+                        "Funkenburgstraße", "Funkenburgstraße", "Funkenburgstraße"),
                 fetchStreets(mr.getEdgeMatches()));
     }
 
@@ -304,7 +300,8 @@ public class MapMatchingTest {
         int prevNode = -1;
         List<String> errors = new ArrayList<String>();
         for (EdgeMatch em : emList) {
-            String str = em.getEdgeState().getName();// + ":" + em.getEdgeState().getBaseNode() + "->" + em.getEdgeState().getAdjNode();
+            String str = em.getEdgeState().getName();// + ":" + em.getEdgeState().getBaseNode() +
+            // "->" + em.getEdgeState().getAdjNode();
             list.add(str);
             if (prevNode >= 0) {
                 if (em.getEdgeState().getBaseNode() != prevNode) {
@@ -321,15 +318,14 @@ public class MapMatchingTest {
     }
 
     private List<GPXEntry> createRandomGPXEntries(GHPoint start, GHPoint end) {
-    	hopper.route(new GHRequest(start, end).setWeighting("fastest"));
+        hopper.route(new GHRequest(start, end).setWeighting("fastest"));
         return hopper.getEdges(0);
     }
 
     private void printOverview(GraphHopperStorage graph, LocationIndex locationIndex,
             final double lat, final double lon, final double length) {
         final NodeAccess na = graph.getNodeAccess();
-        int node = locationIndex.findClosest(lat, lon, EdgeFilter.ALL_EDGES).
-                getClosestNode();
+        int node = locationIndex.findClosest(lat, lon, EdgeFilter.ALL_EDGES).getClosestNode();
         final EdgeExplorer explorer = graph.createEdgeExplorer();
         new BreadthFirstSearch() {
 
@@ -345,9 +341,9 @@ public class MapMatchingTest {
 
             @Override
             protected boolean checkAdjacent(EdgeIteratorState edge) {
-                System.out.println(edge.getBaseNode() + "->" + edge.getAdjNode()
-                        + " (" + Math.round(edge.getDistance()) + "): " + edge.getName()
-                        + "\t\t , distTo:" + currDist);
+                System.out.println(edge.getBaseNode() + "->" + edge.getAdjNode() + " ("
+                        + Math.round(edge.getDistance()) + "): " + edge.getName() + "\t\t , distTo:"
+                        + currDist);
                 return true;
             }
         }.start(explorer, node);
