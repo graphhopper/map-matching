@@ -73,40 +73,40 @@ public class MapMatchingTest {
     }
 
     @Parameterized.Parameters(name="{0}")
-    public static Collection algoOptions() {
+    public static Collection<Object[]> algoOptions() {
 
         // CH:
-        CarFlagEncoder CHEncoder = new CarFlagEncoder();
-        TestGraphHopper CHHopper = new TestGraphHopper();
-        CHHopper.setDataReaderFile("../map-data/leipzig_germany.osm.pbf");
-        CHHopper.setGraphHopperLocation("../target/mapmatchingtest-ch");
-        CHHopper.setEncodingManager(new EncodingManager(CHEncoder));
-        CHHopper.getCHFactoryDecorator().setEnabled(true);
-        CHHopper.importOrLoad();
-        AlgorithmOptions CHOpts = AlgorithmOptions.start()
+        CarFlagEncoder chEncoder = new CarFlagEncoder();
+        TestGraphHopper chHopper = new TestGraphHopper();
+        chHopper.setDataReaderFile("../map-data/leipzig_germany.osm.pbf");
+        chHopper.setGraphHopperLocation("../target/mapmatchingtest-ch");
+        chHopper.setEncodingManager(new EncodingManager(chEncoder));
+        chHopper.getCHFactoryDecorator().setEnabled(true);
+        chHopper.importOrLoad();
+        AlgorithmOptions chOpts = AlgorithmOptions.start()
                 .algorithm(Parameters.Algorithms.DIJKSTRA_BI)
-                .traversalMode(CHHopper.getTraversalMode()).flagEncoder(CHEncoder)
-                .weighting(CHHopper.getCHFactoryDecorator().getWeightings().get(0))
+                .traversalMode(chHopper.getTraversalMode()).flagEncoder(chEncoder)
+                .weighting(chHopper.getCHFactoryDecorator().getWeightings().get(0))
                 .maxVisitedNodes(1000)
                 .hints(new HintsMap().put("weighting", "fastest").put("vehicle", "car")).build();
 
         // flexible:
-        CarFlagEncoder FlexibleEncoder = new CarFlagEncoder();
-        TestGraphHopper FlexibleHopper = new TestGraphHopper();
-        FlexibleHopper.setDataReaderFile("../map-data/leipzig_germany.osm.pbf");
-        FlexibleHopper.setGraphHopperLocation("../target/mapmatchingtest-flexible");
-        FlexibleHopper.setEncodingManager(new EncodingManager(FlexibleEncoder));
-        FlexibleHopper.getCHFactoryDecorator().setEnabled(false);
-        FlexibleHopper.importOrLoad();
-        AlgorithmOptions FlexibleOpts = AlgorithmOptions.start()
+        CarFlagEncoder flexibleEncoder = new CarFlagEncoder();
+        TestGraphHopper flexibleHopper = new TestGraphHopper();
+        flexibleHopper.setDataReaderFile("../map-data/leipzig_germany.osm.pbf");
+        flexibleHopper.setGraphHopperLocation("../target/mapmatchingtest-flexible");
+        flexibleHopper.setEncodingManager(new EncodingManager(flexibleEncoder));
+        flexibleHopper.getCHFactoryDecorator().setEnabled(false);
+        flexibleHopper.importOrLoad();
+        AlgorithmOptions flexibleOpts = AlgorithmOptions.start()
                 .algorithm(Parameters.Algorithms.DIJKSTRA_BI)
-                .traversalMode(FlexibleHopper.getTraversalMode()).flagEncoder(FlexibleEncoder)
-                .weighting(new FastestWeighting(FlexibleEncoder)).maxVisitedNodes(1000)
+                .traversalMode(flexibleHopper.getTraversalMode()).flagEncoder(flexibleEncoder)
+                .weighting(new FastestWeighting(flexibleEncoder)).maxVisitedNodes(1000)
                 .hints(new HintsMap().put("weighting", "fastest").put("vehicle", "car")).build();
 
         return Arrays.asList(new Object[][] {
-            { "CH", CHHopper, CHOpts },
-            { "non-CH", FlexibleHopper, FlexibleOpts } 
+            { "CH", chHopper, chOpts },
+            { "non-CH", flexibleHopper, flexibleOpts } 
             });
     }
 
