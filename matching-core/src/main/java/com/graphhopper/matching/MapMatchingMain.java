@@ -86,7 +86,7 @@ public class MapMatchingMain {
             		algorithm(Parameters.Algorithms.DIJKSTRA_BI).traversalMode(hopper.getTraversalMode()).
                     flagEncoder(firstEncoder).weighting(new FastestWeighting(firstEncoder)).
                     maxVisitedNodes(args.getInt("max_visited_nodes", 1000)).
-                    hints(new HintsMap().put("weighting", "fastest").put("vehicle", firstEncoder.getClass().getName())).
+                    hints(new HintsMap().put("weighting", "fastest").put("vehicle", firstEncoder.toString())).
                     build();
             MapMatching mapMatching = new MapMatching(hopper, opts);
             mapMatching.setTransitionProbabilityBeta(args.getDouble("transition_probability_beta", 0.00959442));
