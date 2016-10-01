@@ -17,21 +17,24 @@
  */
 package com.graphhopper.matching;
 
+import com.graphhopper.GraphHopper;
 import com.graphhopper.matching.util.HmmProbabilities;
 import com.graphhopper.matching.util.TimeStep;
-import com.graphhopper.routing.weighting.FastestWeighting;
 import com.graphhopper.routing.weighting.Weighting;
 import com.bmw.hmm.SequenceState;
 import com.bmw.hmm.ViterbiAlgorithm;
-import com.graphhopper.routing.DijkstraBidirectionRef;
+import com.graphhopper.routing.AlgorithmOptions;
 import com.graphhopper.routing.Path;
 import com.graphhopper.routing.QueryGraph;
+import com.graphhopper.routing.RoutingAlgorithm;
+import com.graphhopper.routing.RoutingAlgorithmFactory;
 import com.graphhopper.routing.util.*;
+import com.graphhopper.storage.CHGraph;
 import com.graphhopper.storage.Graph;
+import com.graphhopper.storage.index.LocationIndexTree;
 import com.graphhopper.storage.index.QueryResult;
 import com.graphhopper.util.*;
 import com.graphhopper.util.shapes.GHPoint;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -54,42 +57,38 @@ import java.util.Map;
  * @author Peter Karich
  * @author Michael Zilske
  * @author Stefan Holder
+ * @author kodonnell
  */
 public class MapMatching {
 
     private final Graph graph;
     private final LocationIndexMatch locationIndex;
     private final FlagEncoder encoder;
-    private final TraversalMode traversalMode;
-
     private double measurementErrorSigma = 50.0;
-
     private double transitionProbabilityBeta = 0.00959442;
-    private int maxVisitedNodes = 1000;
     private final int nodeCount;
     private DistanceCalc distanceCalc = new DistancePlaneProjection();
+    private RoutingAlgorithmFactory algoFactory;
+    private AlgorithmOptions algoOptions;
     private Weighting weighting;
 
-    public MapMatching(Graph graph, LocationIndexMatch locationIndex, FlagEncoder encoder) {
-        this.graph = graph;
+    public MapMatching(GraphHopper hopper, AlgorithmOptions algoOptions) {
+        this.locationIndex = new LocationIndexMatch(hopper.getGraphHopperStorage(),
+                (LocationIndexTree) hopper.getLocationIndex());
+        this.encoder = algoOptions.getFlagEncoder();
+        this.weighting = algoOptions.getWeighting();
+        // get base graph, which differs depending on CH:
+        this.graph = hopper.getGraphHopperStorage()
+                .getGraph((hopper.isCHEnabled() ? CHGraph.class : Graph.class), this.weighting);
         this.nodeCount = graph.getNodes();
-        this.locationIndex = locationIndex;
-
-        // TODO initialization of start values for the algorithm is currently done explicitly via
-        // node IDs!
-        // To fix this use instead: traversalMode.createTraversalId(iter, false);
-//        this.traversalMode = graph.getExtension() instanceof TurnCostExtension
-//                ? TraversalMode.EDGE_BASED_2DIR : TraversalMode.NODE_BASED;
-        this.traversalMode = TraversalMode.NODE_BASED;
-        this.encoder = encoder;
-        this.weighting = new FastestWeighting(encoder);
-    }
-
-    /**
-     * This method overwrites the default fastest weighting.
-     */
-    public void setWeighting(Weighting weighting) {
-        this.weighting = weighting;
+        this.algoOptions = algoOptions;
+        // create hints from algoOptions, so we can create the algorithm factory
+        PMap pmap = algoOptions.getHints();
+        HintsMap hints = new HintsMap();
+        for (String k : pmap.toMap().keySet()) {
+            hints.put(k, pmap.get(k, null));
+        }
+        this.algoFactory = hopper.getAlgorithmFactory(hints);
     }
 
     public void setDistanceCalc(DistanceCalc distanceCalc) {
@@ -112,10 +111,6 @@ public class MapMatching {
         this.measurementErrorSigma = measurementErrorSigma;
     }
 
-    public void setMaxVisitedNodes(int maxNodesToVisit) {
-        this.maxVisitedNodes = maxNodesToVisit;
-    }
-
     /**
      * This method does the actual map matching.
      * <p>
@@ -136,7 +131,6 @@ public class MapMatching {
         final List<QueryResult> allCandidates = new ArrayList<>();
         List<TimeStep<GPXExtension, GPXEntry, Path>> timeSteps = createTimeSteps(gpxList,
                 edgeFilter, allCandidates);
-        // printMinDistances(timeSteps);
         
         if (allCandidates.size() < 2) {
             throw new IllegalArgumentException("Too few matching coordinates ("
@@ -233,7 +227,8 @@ public class MapMatching {
                 throw new RuntimeException("Sequence is broken for submitted track at time step "
                         + timeStepCounter + " (" + gpxList.size() + " points). " + likelyReasonStr
                         + "observation:" + timeStep.observation + ", candidates: "
-                        + getSnappedCandidates(timeStep.candidates));
+                        + getSnappedCandidates(timeStep.candidates) + ". If a match is expected "
+                        + "consider increasing maxVisitedNodes.");
             }
 
             timeStepCounter++;
@@ -266,17 +261,13 @@ public class MapMatching {
 
         for (GPXExtension from : prevTimeStep.candidates) {
             for (GPXExtension to : timeStep.candidates) {
-                // TODO allow CH, then optionally use cached one-to-many Dijkstra to improve speed
-                final DijkstraBidirectionRef algo =
-                        new DijkstraBidirectionRef(queryGraph, encoder, weighting, traversalMode);
-                algo.setMaxVisitedNodes(maxVisitedNodes);
+                RoutingAlgorithm algo = algoFactory.createAlgo(queryGraph, algoOptions);
                 final Path path = algo.calcPath(from.getQueryResult().getClosestNode(),
                         to.getQueryResult().getClosestNode());
                 if (path.isFound()) {
                     timeStep.addRoadPath(from, to, path);
-                    final double transitionLogProbability =
-                            probabilities.transitionLogProbability(path.getDistance(),
-                            linearDistance, timeDiff);
+                    final double transitionLogProbability = probabilities
+                            .transitionLogProbability(path.getDistance(), linearDistance, timeDiff);
                     timeStep.addTransitionLogProbability(from, to, transitionLogProbability);
                 }
             }
