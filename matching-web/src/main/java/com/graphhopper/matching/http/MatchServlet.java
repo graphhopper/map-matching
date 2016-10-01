@@ -23,8 +23,11 @@ import com.graphhopper.PathWrapper;
 import com.graphhopper.http.GraphHopperServlet;
 import com.graphhopper.http.RouteSerializer;
 import com.graphhopper.matching.*;
+import com.graphhopper.routing.AlgorithmOptions;
 import com.graphhopper.routing.Path;
 import com.graphhopper.routing.util.FlagEncoder;
+import com.graphhopper.routing.util.HintsMap;
+import com.graphhopper.routing.weighting.FastestWeighting;
 import com.graphhopper.util.*;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -114,8 +117,14 @@ public class MatchServlet extends GraphHopperServlet {
         if (!matchGHRsp.hasErrors()) {
             try {
                 FlagEncoder encoder = hopper.getEncodingManager().getEncoder(vehicle);
-                MapMatching matching = new MapMatching(hopper.getGraphHopperStorage(), locationIndexMatch, encoder);
-                matching.setMaxVisitedNodes(maxVisitedNodes);
+                AlgorithmOptions opts = AlgorithmOptions.start()
+                        .algorithm(Parameters.Algorithms.DIJKSTRA_BI)
+                        .traversalMode(hopper.getTraversalMode()).flagEncoder(encoder)
+                        .weighting(new FastestWeighting(encoder))
+                        .maxVisitedNodes(maxVisitedNodes).hints(new HintsMap()
+                                .put("weighting", "fastest").put("vehicle", encoder.toString()))
+                        .build();
+                MapMatching matching = new MapMatching(hopper, opts);
                 matching.setMeasurementErrorSigma(gpsAccuracy);
                 matchRsp = matching.doWork(gpxFile.getEntries());
 
