@@ -24,8 +24,6 @@ import com.graphhopper.reader.osm.GraphHopperOSM;
 import com.graphhopper.routing.AlgorithmOptions;
 import com.graphhopper.routing.Path;
 import com.graphhopper.routing.util.*;
-import com.graphhopper.routing.weighting.FastestWeighting;
-import com.graphhopper.routing.weighting.Weighting;
 import com.graphhopper.storage.GraphHopperStorage;
 import com.graphhopper.storage.NodeAccess;
 import com.graphhopper.storage.index.LocationIndex;
@@ -35,6 +33,7 @@ import com.graphhopper.util.EdgeIteratorState;
 import com.graphhopper.util.GPXEntry;
 import com.graphhopper.util.Helper;
 import com.graphhopper.util.InstructionList;
+import com.graphhopper.util.PMap;
 import com.graphhopper.util.Parameters;
 import com.graphhopper.util.PathMerger;
 import com.graphhopper.util.Translation;
@@ -57,57 +56,46 @@ import org.junit.runners.Parameterized;
  * @author Peter Karich
  * @author kodonnell
  */
-
 @RunWith(Parameterized.class)
 public class MapMatchingTest {
 
     public final static TranslationMap SINGLETON = new TranslationMap().doImport();
 
-    // parameterize:
-    private TestGraphHopper hopper;
-    private AlgorithmOptions algoOption;
+    private final TestGraphHopper hopper;
+    private final AlgorithmOptions algoOptions;
 
     public MapMatchingTest(String name, TestGraphHopper hopper, AlgorithmOptions algoOption) {
-        this.algoOption = algoOption;
+        this.algoOptions = algoOption;
         this.hopper = hopper;
     }
 
-    @Parameterized.Parameters(name="{0}")
+    @Parameterized.Parameters(name = "{0}")
     public static Collection<Object[]> algoOptions() {
 
-        // CH:
-        CarFlagEncoder chEncoder = new CarFlagEncoder();
-        TestGraphHopper chHopper = new TestGraphHopper();
-        chHopper.setDataReaderFile("../map-data/leipzig_germany.osm.pbf");
-        chHopper.setGraphHopperLocation("../target/mapmatchingtest-ch");
-        chHopper.setEncodingManager(new EncodingManager(chEncoder));
-        chHopper.getCHFactoryDecorator().setEnabled(true);
-        chHopper.importOrLoad();
+        // create hopper instance with CH enabled
+        CarFlagEncoder encoder = new CarFlagEncoder();
+        TestGraphHopper hopper = new TestGraphHopper();
+        hopper.setDataReaderFile("../map-data/leipzig_germany.osm.pbf");
+        hopper.setGraphHopperLocation("../target/mapmatchingtest-ch");
+        hopper.setEncodingManager(new EncodingManager(encoder));
+        hopper.importOrLoad();
+
+        // force CH
         AlgorithmOptions chOpts = AlgorithmOptions.start()
-                .algorithm(Parameters.Algorithms.DIJKSTRA_BI)
-                .traversalMode(chHopper.getTraversalMode()).flagEncoder(chEncoder)
-                .weighting(chHopper.getCHFactoryDecorator().getWeightings().get(0))
-                .maxVisitedNodes(1000)
-                .hints(new HintsMap().put("weighting", "fastest").put("vehicle", "car")).build();
+                .maxVisitedNodes(40)
+                .hints(new PMap().put(Parameters.CH.DISABLE, false))
+                .build();
 
-        // flexible:
-        CarFlagEncoder flexibleEncoder = new CarFlagEncoder();
-        TestGraphHopper flexibleHopper = new TestGraphHopper();
-        flexibleHopper.setDataReaderFile("../map-data/leipzig_germany.osm.pbf");
-        flexibleHopper.setGraphHopperLocation("../target/mapmatchingtest-flexible");
-        flexibleHopper.setEncodingManager(new EncodingManager(flexibleEncoder));
-        flexibleHopper.getCHFactoryDecorator().setEnabled(false);
-        flexibleHopper.importOrLoad();
-        AlgorithmOptions flexibleOpts = AlgorithmOptions.start()
-                .algorithm(Parameters.Algorithms.DIJKSTRA_BI)
-                .traversalMode(flexibleHopper.getTraversalMode()).flagEncoder(flexibleEncoder)
-                .weighting(new FastestWeighting(flexibleEncoder)).maxVisitedNodes(1000)
-                .hints(new HintsMap().put("weighting", "fastest").put("vehicle", "car")).build();
+        // flexible should fall back to defaults
+        AlgorithmOptions flexibleOpts = AlgorithmOptions.start().
+                // TODO: fewer nodes than for CH are possible!?
+                // maxVisitedNodes(20).                
+                build();
 
-        return Arrays.asList(new Object[][] {
-            { "CH", chHopper, chOpts },
-            { "non-CH", flexibleHopper, flexibleOpts } 
-            });
+        return Arrays.asList(new Object[][]{
+            {"non-CH", hopper, flexibleOpts},
+            {"CH", hopper, chOpts}
+        });
     }
 
     /**
@@ -115,8 +103,7 @@ public class MapMatchingTest {
      */
     @Test
     public void testDoWork() {
-
-        MapMatching mapMatching = new MapMatching(hopper, algoOption);
+        MapMatching mapMatching = new MapMatching(hopper, algoOptions);
         List<GPXEntry> inputGPXEntries = createRandomGPXEntries(
                 new GHPoint(51.358735, 12.360574),
                 new GHPoint(51.358594, 12.360032));
@@ -166,7 +153,7 @@ public class MapMatchingTest {
         inputGPXEntries = createRandomGPXEntries(
                 new GHPoint(51.377781, 12.338333),
                 new GHPoint(51.323317, 12.387085));
-        mapMatching = new MapMatching(hopper, algoOption);
+        mapMatching = new MapMatching(hopper, algoOptions);
         mapMatching.setMeasurementErrorSigma(20);
         mr = mapMatching.doWork(inputGPXEntries);
 
@@ -179,15 +166,15 @@ public class MapMatchingTest {
     }
 
     /**
-     * This test is to check behavior over large separated routes: it should work if the user sets
-     * the maxVisitedNodes large enough. Input path:
+     * This test is to check behavior over large separated routes: it should
+     * work if the user sets the maxVisitedNodes large enough. Input path:
      * https://graphhopper.com/maps/?point=51.23%2C12.18&point=51.45%2C12.59&layer=Lyrk
      */
     @Test
     public void testDistantPoints() {
 
         // OK with 1000 visited nodes:
-        MapMatching mapMatching = new MapMatching(hopper, algoOption);
+        MapMatching mapMatching = new MapMatching(hopper, algoOptions);
         List<GPXEntry> inputGPXEntries = createRandomGPXEntries(
                 new GHPoint(51.23, 12.18),
                 new GHPoint(51.45, 12.59));
@@ -196,14 +183,7 @@ public class MapMatchingTest {
         assertEquals(mr.getMatchMillis(), 2748186, 1);
 
         // not OK when we only allow a small number of visited nodes:
-        FlagEncoder car = hopper.getEncodingManager().getEncoder("car");
-        Weighting w = hopper.isCHEnabled() ? hopper.getCHFactoryDecorator().getWeightings().get(0)
-                : new FastestWeighting(car);
-        AlgorithmOptions opts = AlgorithmOptions.start()
-                .algorithm(Parameters.Algorithms.DIJKSTRA_BI)
-                .traversalMode(hopper.getTraversalMode()).flagEncoder(car).weighting(w)
-                .maxVisitedNodes(1)
-                .hints(new HintsMap().put("weighting", "fastest").put("vehicle", "car")).build();
+        AlgorithmOptions opts = AlgorithmOptions.start(algoOptions).maxVisitedNodes(1).build();
         mapMatching = new MapMatching(hopper, opts);
         try {
             mr = mapMatching.doWork(inputGPXEntries);
@@ -214,15 +194,16 @@ public class MapMatchingTest {
     }
 
     /**
-     * This test is to check what happens when two GPX entries are on one edge which is longer than
-     * 'separatedSearchDistance' - which is always 66m. GPX input:
+     * This test is to check what happens when two GPX entries are on one edge
+     * which is longer than 'separatedSearchDistance' - which is always 66m. GPX
+     * input:
      * https://graphhopper.com/maps/?point=51.359723%2C12.360108&point=51.358748%2C12.358798&point=51.358001%2C12.357597&point=51.358709%2C12.356511&layer=Lyrk
      */
     @Test
     public void testSmallSeparatedSearchDistance() {
         List<GPXEntry> inputGPXEntries = new GPXFile()
                 .doImport("./src/test/resources/tour3-with-long-edge.gpx").getEntries();
-        MapMatching mapMatching = new MapMatching(hopper, algoOption);
+        MapMatching mapMatching = new MapMatching(hopper, algoOptions);
         mapMatching.setMeasurementErrorSigma(20);
         MatchResult mr = mapMatching.doWork(inputGPXEntries);
         assertEquals(Arrays.asList("Weinligstraße", "Weinligstraße", "Weinligstraße",
@@ -237,7 +218,7 @@ public class MapMatchingTest {
      */
     @Test
     public void testLoop() {
-        MapMatching mapMatching = new MapMatching(hopper, algoOption);
+        MapMatching mapMatching = new MapMatching(hopper, algoOptions);
         List<GPXEntry> inputGPXEntries = new GPXFile()
                 .doImport("./src/test/resources/tour2-with-loop.gpx").getEntries();
         MatchResult mr = mapMatching.doWork(inputGPXEntries);
@@ -257,7 +238,7 @@ public class MapMatchingTest {
      */
     @Test
     public void testLoop2() {
-        MapMatching mapMatching = new MapMatching(hopper, algoOption);
+        MapMatching mapMatching = new MapMatching(hopper, algoOptions);
         // TODO smaller sigma like 40m leads to U-turn at Tschaikowskistraße
         mapMatching.setMeasurementErrorSigma(50);
         List<GPXEntry> inputGPXEntries = new GPXFile()
@@ -270,13 +251,14 @@ public class MapMatchingTest {
     }
 
     /**
-     * This test is to check that U-turns are avoided when it's just measurement error, though do
-     * occur when a point goes up a road further than the measurement error. GPX input:
+     * This test is to check that U-turns are avoided when it's just measurement
+     * error, though do occur when a point goes up a road further than the
+     * measurement error. GPX input:
      * https://graphhopper.com/maps/?point=51.343618%2C12.360772&point=51.34401%2C12.361776&point=51.343977%2C12.362886&point=51.344734%2C12.36236&point=51.345233%2C12.362055&layer=Lyrk
      */
     @Test
     public void testUTurns() {
-        MapMatching mapMatching = new MapMatching(hopper, algoOption);
+        MapMatching mapMatching = new MapMatching(hopper, algoOptions);
         List<GPXEntry> inputGPXEntries = new GPXFile()
                 .doImport("./src/test/resources/tour4-with-uturn.gpx").getEntries();
 

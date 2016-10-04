@@ -27,7 +27,6 @@ import com.graphhopper.routing.AlgorithmOptions;
 import com.graphhopper.routing.Path;
 import com.graphhopper.routing.util.FlagEncoder;
 import com.graphhopper.routing.util.HintsMap;
-import com.graphhopper.routing.weighting.FastestWeighting;
 import com.graphhopper.util.*;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -53,8 +52,6 @@ public class MatchServlet extends GraphHopperServlet {
 
     @Inject
     private GraphHopper hopper;
-    @Inject
-    private LocationIndexMatch locationIndexMatch;
     @Inject
     private RouteSerializer routeSerializer;
     @Inject
@@ -107,7 +104,6 @@ public class MatchServlet extends GraphHopperServlet {
         boolean enableTraversalKeys = getBooleanParam(httpReq, "traversal_keys", false);
 
         String vehicle = getParam(httpReq, "vehicle", "car");
-        String weighting = getParam(httpReq, "weighting", "fastest");
         int maxVisitedNodes = Math.min(getIntParam(httpReq, "max_visited_nodes", 3000), 5000);
         double defaultAccuracy = 40;
         double gpsAccuracy = Math.min(Math.max(getDoubleParam(httpReq, "gps_accuracy", defaultAccuracy), 5), gpsMaxAccuracy);
@@ -120,9 +116,8 @@ public class MatchServlet extends GraphHopperServlet {
                 FlagEncoder encoder = hopper.getEncodingManager().getEncoder(vehicle);
                 AlgorithmOptions opts = AlgorithmOptions.start()
                         .algorithm(Parameters.Algorithms.DIJKSTRA_BI)
-                        .traversalMode(hopper.getTraversalMode()).flagEncoder(encoder)
-                        .maxVisitedNodes(maxVisitedNodes).hints(new HintsMap()
-                                .put("weighting", weighting).put("vehicle", encoder.toString()))
+                        .traversalMode(hopper.getTraversalMode())
+                        .maxVisitedNodes(maxVisitedNodes).hints(new HintsMap().put("vehicle", encoder.toString()))
                         .build();
                 MapMatching matching = new MapMatching(hopper, opts);
                 matching.setMeasurementErrorSigma(gpsAccuracy);

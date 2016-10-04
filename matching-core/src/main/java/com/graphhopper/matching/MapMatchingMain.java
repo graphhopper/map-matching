@@ -73,7 +73,7 @@ public class MapMatchingMain {
             logger.info("loading graph from cache");
             hopper.load("./graph-cache");
             FlagEncoder firstEncoder = hopper.getEncodingManager().fetchEdgeEncoders().get(0);
-            
+
             int gpsAccuracy = args.getInt("gps_accuracy", -1);
             if (gpsAccuracy < 0) {
                 // backward compatibility since 0.8
@@ -83,8 +83,8 @@ public class MapMatchingMain {
             String instructions = args.get("instructions", "");
             logger.info("Setup lookup index. Accuracy filter is at " + gpsAccuracy + "m");
             AlgorithmOptions opts = AlgorithmOptions.start().
-            		algorithm(Parameters.Algorithms.DIJKSTRA_BI).traversalMode(hopper.getTraversalMode()).
-                    flagEncoder(firstEncoder).weighting(new FastestWeighting(firstEncoder)).
+                    algorithm(Parameters.Algorithms.DIJKSTRA_BI).traversalMode(hopper.getTraversalMode()).
+                    weighting(new FastestWeighting(firstEncoder)).
                     maxVisitedNodes(args.getInt("max_visited_nodes", 1000)).
                     hints(new HintsMap().put("weighting", "fastest").put("vehicle", firstEncoder.toString())).
                     build();
