@@ -13,3 +13,5 @@ nbactions.xml
 .project
 matching-vaadin/src/main/webapp/
 matching-core/build.xml
+/map-data/**/*
+bin/
