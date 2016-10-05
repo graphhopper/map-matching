@@ -34,7 +34,6 @@ import com.graphhopper.storage.index.LocationIndexTree;
 import com.graphhopper.util.*;
 import com.graphhopper.util.shapes.BBox;
 import com.graphhopper.util.shapes.GHPoint;
-import com.graphhopper.util.shapes.GHPoint3D;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -92,24 +91,10 @@ public class Measurement {
         
         StopWatch sw = new StopWatch().start();
         try {
-//            maxNode = g.getNodes();
-//            GHBitSet allowedEdges = printGraphDetails(g, vehicleStr);
             boolean isCH = false;
             printLocationIndexMatchQuery(g, locationIndex);
             printTimeOfMapMatchQuery(hopper, mapMatching, g);
-//            printMiscUnitPerfTests(g, isCH, encoder, count * 100, allowedEdges);
-//            printLocationIndexQuery(g, hopper.getLocationIndex(), count);
-
-//            printTimeOfRouteQuery(hopper, isCH, count / 20, "routing", vehicleStr, true);
-
             System.gc();
-
-//            CHGraph lg = g.getGraph(CHGraph.class, weighting);
-//            fillAllowedEdges(lg.getAllEdges(), allowedEdges);
-//            isCH = true;
-//            printMiscUnitPerfTests(lg, isCH, encoder, count * 100, allowedEdges);
-//            printTimeOfRouteQuery(hopper, isCH, count, "routingCH", vehicleStr, true);
-//            printTimeOfRouteQuery(hopper, isCH, count, "routingCH_no_instr", vehicleStr, false);
             logger.info("store into " + propLocation);
         } catch (Exception ex) {
             logger.error("Problem while measuring " + graphLocation, ex);

@@ -37,51 +37,52 @@ elif [ "$1" = "action=measurement" ]; then
     ARGS="config=$CONFIG graph.location=$GRAPH datareader.file=$2 prepare.ch.weightings=fastest graph.flag_encoders=car prepare.min_network_size=10000 prepare.min_oneway_network_size=10000"
     current_commit=$(git log -n 1 --pretty=oneline | cut -d' ' -f1)
     function startMeasurement {
-        commit_info=$(git log -n 1 --pretty=oneline)
         echo -e "\nperforming measurement for commit $current_commit"
-        "$JAVA" $JAVA_OPTS -cp "$JAR" com.graphhopper.matching.tools.Measurement $ARGS measurement.count=5000 measurement.location="$measurement_fname" measurement.gitinfo="$commit_info"
+        echo $measurement_fname
+        echo "$JAVA" $JAVA_OPTS -cp "$JAR" com.graphhopper.matching.tools.Measurement $ARGS measurement.location="$measurement_fname"
+        "$JAVA" $JAVA_OPTS -cp "$JAR" com.graphhopper.matching.tools.Measurement $ARGS measurement.location="$measurement_fname"
     }
 
     # use all <last_commits> versions starting from HEAD
     last_commits=$3
     if [ -z "$last_commits" ]; then
         measurement_fname=$fname
-        tested_commit=$current_commit
         startMeasurement
     else
-        echo "commits (in order tested):" >> $fname
+        echo "commits (in order tested):" >> "$fname"
         # TODO: check changes are committed?
-        values=$fname.values
-        measurement_fname=$fname.tmp
-        commits=$(git rev-list HEAD -n $last_commits)
+        values=${fname}.values
+        measurement_fname=${fname}.tmp
+        commits=$(git rev-list HEAD -n "$last_commits")
         first=true
         for commit in $commits; do
-            git checkout $commit
-            git log -n 1 --pretty=oneline >> $fname
+            git checkout "$commit"
+            git log -n 1 --pretty=oneline >> "$fname"
             mvn --projects matching-tools -DskipTests=true clean install assembly:single
-            rm -f $measurement_fname
+            rm -f "$measurement_fname"
             startMeasurement
-            while read line; do
+            while read -r line; do
                 key=${line%%=*}
-                value=$(printf "%-10s" ${line##*=})
+                value=$(printf "%-20s" "${line##*=}")
                 if [ "$first" = true ] ; then
-                    printf "%-30s%s" $key $value >> $values
+                    printf "%-30s%s\n" "$key" "$value" >> "$values"
                 else
-                    echo sed -ir "s/($key.*)/\1$value/g" $values
-                    sed -ir "s/($key.*)/\1$value/g" $values
+                    sed -ri "s/($key.*)/\1$value/g" "$values"
                 fi
-            done < $measurement_fname
+            done < "$measurement_fname"
+            first=false
         done
-        echo -e "\nmeasurements:\n-------------\n" >> $fname
-        cat $values >> $fname
-        rm $values
-        rm $measurement_fname
+        echo -e "\nmeasurements:\n-------------\n" >> "$fname"
+        cat "$values" >> "$fname"
+        rm "$values"
+        rm "$measurement_fname"
         # revert checkout
-        git checkout $current_commit
+        git checkout "$current_commit"
     fi
+    exit 0
 else
     set_jar "core"
     ARGS="$@"
 fi
 
-exec "$JAVA" $JAVA_OPTS -jar $JAR $ARGS prepare.min_network_size=0 prepare.min_one_way_network_size=0
+exec "$JAVA" $JAVA_OPTS -jar "$JAR" $ARGS prepare.min_network_size=0 prepare.min_one_way_network_size=0
