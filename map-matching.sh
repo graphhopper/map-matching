@@ -52,7 +52,7 @@ elif [ "$1" = "action=measurement" ]; then
         # the following checks out the last commits, and tests each one. The code looks a bit
         # messier than that, as we merge the results into a single file (to make it easier to
         # compare.
-        echo "commits (in order tested):\n--------------------------\n" >> "$fname"
+        echo -e "commits (in order tested):\n--------------------------\n" >> "$fname"
         values=${fname}.values
         measurement_fname=${fname}.tmp
         commits=$(git rev-list HEAD -n "$last_commits")
