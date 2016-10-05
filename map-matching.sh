@@ -49,12 +49,15 @@ elif [ "$1" = "action=measurement" ]; then
         measurement_fname=$fname
         startMeasurement
     else
-        echo "commits (in order tested):" >> "$fname"
-        # TODO: check changes are committed?
+        # the following checks out the last commits, and tests each one. The code looks a bit
+        # messier than that, as we merge the results into a single file (to make it easier to
+        # compare.
+        echo "commits (in order tested):\n--------------------------\n" >> "$fname"
         values=${fname}.values
         measurement_fname=${fname}.tmp
         commits=$(git rev-list HEAD -n "$last_commits")
         first=true
+        empty_pad=""
         for commit in $commits; do
             git checkout "$commit"
             git log -n 1 --pretty=oneline >> "$fname"
@@ -67,10 +70,16 @@ elif [ "$1" = "action=measurement" ]; then
                 if [ "$first" = true ] ; then
                     printf "%-30s%s\n" "$key" "$value" >> "$values"
                 else
-                    sed -ri "s/($key.*)/\1$value/g" "$values"
+                    if grep "$key" "$values"; then
+                        sed -ri "s/($key.*)/\1$value/g" "$values"
+                    else
+                        # add a new row, using $empty_pad to get the column in the right place
+                        printf "%-30s%s%s\n" "$key" "$empty_pad" "$value" >> "$values"
+                    fi
                 fi
             done < "$measurement_fname"
             first=false
+            empty_pad=$(printf "%s%-20s" "$empty_pad" "")
         done
         echo -e "\nmeasurements:\n-------------\n" >> "$fname"
         cat "$values" >> "$fname"
@@ -79,6 +88,9 @@ elif [ "$1" = "action=measurement" ]; then
         # revert checkout
         git checkout "$current_commit"
     fi
+    # in either case, echo the file:
+    echo ""
+    cat "$fname"
     exit 0
 else
     set_jar "core"

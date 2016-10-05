@@ -20,8 +20,6 @@ package com.graphhopper.matching.tools;
 import com.graphhopper.GHRequest;
 import com.graphhopper.GHResponse;
 import com.graphhopper.GraphHopper;
-import com.graphhopper.PathWrapper;
-import com.graphhopper.coll.GHBitSet;
 import com.graphhopper.matching.LocationIndexMatch;
 import com.graphhopper.matching.MapMatching;
 import com.graphhopper.matching.MatchResult;
@@ -34,10 +32,8 @@ import com.graphhopper.storage.index.LocationIndexTree;
 import com.graphhopper.util.*;
 import com.graphhopper.util.shapes.BBox;
 import com.graphhopper.util.shapes.GHPoint;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.io.FileWriter;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
@@ -58,49 +54,49 @@ public class Measurement {
     private final Map<String, String> properties = new TreeMap<String, String>();
     private long seed;
     private int count;
+    private BBox bbox;
+    private DistanceCalcEarth distCalc = new DistanceCalcEarth();
 
-    public static void main(String[] strs) {
+    public static void main(String[] strs) throws Exception {
         new Measurement().start(CmdArgs.read(strs));
     }
 
-    // creates properties file in the format key=value
-    // Every value is one y-value in a separate diagram with an identical x-value for every Measurement.start call
-    void start(CmdArgs args) {
+    // creates measurement result file in the format <measurement property>=<value>
+    void start(CmdArgs args) throws Exception {
+    	
+    	// read and initialise arguments:
         String graphLocation = args.get("graph.location", "");
         String propLocation = args.get("measurement.location", "");
-        if (Helper.isEmpty(propLocation))
-            propLocation = "measurement" + new SimpleDateFormat("yyyy-MM-dd_HH_mm_ss").format(new Date()) + ".properties";
-
+        if (Helper.isEmpty(propLocation)) {
+        	throw new Exception("You must provide an output location via the 'measurement.location' argument");
+        }
         seed = args.getLong("measurement.seed", 123);
-        String gitCommit = args.get("measurement.gitinfo", "");
         count = args.getInt("measurement.count", 5000);
 
+        // create hopper instance
         GraphHopper hopper = new GraphHopperOSM();
         hopper.init(args).forDesktop();
+        hopper.getCHFactoryDecorator().setEnabled(true);
         hopper.getCHFactoryDecorator().setDisablingAllowed(true);
         hopper.importOrLoad();
-        GraphHopperStorage g = hopper.getGraphHopperStorage();
         String vehicleStr = args.get("graph.flag_encoders", "car");
         FlagEncoder encoder = hopper.getEncodingManager().getEncoder(vehicleStr);
-        Weighting weighting = hopper.getCHFactoryDecorator().getWeightings().get(0);
-        
-
         GraphHopperStorage graph = hopper.getGraphHopperStorage();
+        bbox = graph.getBounds();
         LocationIndexMatch locationIndex = new LocationIndexMatch(graph, (LocationIndexTree) hopper.getLocationIndex());
         MapMatching mapMatching = new MapMatching(graph, locationIndex, encoder);
         
+        // start tests:
         StopWatch sw = new StopWatch().start();
         try {
-            boolean isCH = false;
-            printLocationIndexMatchQuery(g, locationIndex);
-            printTimeOfMapMatchQuery(hopper, mapMatching, g);
+            printLocationIndexMatchQuery(locationIndex);
+            printTimeOfMapMatchQuery(hopper, mapMatching);
             System.gc();
             logger.info("store into " + propLocation);
         } catch (Exception ex) {
             logger.error("Problem while measuring " + graphLocation, ex);
             put("error", ex.toString());
         } finally {
-//            put("measurement.gitinfo", gitCommit);
             put("measurement.count", count);
             put("measurement.seed", seed);
             put("measurement.time", sw.stop().getTime());
@@ -114,10 +110,13 @@ public class Measurement {
             }
         }
     }
-
     
-    private void printLocationIndexMatchQuery(Graph g, final LocationIndexMatch idx) {
-        final BBox bbox = g.getBounds();
+    /**
+     * Test the performance of finding candidate points for the index (which is run for every GPX
+     * entry).
+     * 
+     */
+    private void printLocationIndexMatchQuery(final LocationIndexMatch idx) {
         final double latDelta = bbox.maxLat - bbox.minLat;
         final double lonDelta = bbox.maxLon - bbox.minLon;
         final Random rand = new Random(seed);
@@ -133,47 +132,65 @@ public class Measurement {
         print("location_index_match", miniPerf);
     }
 
-    private void printTimeOfMapMatchQuery(final GraphHopper hopper, final MapMatching mapMatching, Graph g) {
+    /**
+     * Test the time taken for map matching on random routes. Note that this includes the index 
+     * lookups (previous tests), so will be affected by those. Otherwise this is largely testing
+     * the routing and HMM performance.
+     */
+    private void printTimeOfMapMatchQuery(final GraphHopper hopper, final MapMatching mapMatching) {
     	
-    	// pick random endpoints to create a route, then pick random points from the route,
+    	// pick random start/end points to create a route, then pick random points from the route,
     	// and then run the random points through map-matching.
-    	final BBox bbox = g.getBounds();
         final double latDelta = bbox.maxLat - bbox.minLat;
         final double lonDelta = bbox.maxLon - bbox.minLon;
         final Random rand = new Random(seed);
-        DistanceCalcEarth distCalc = new DistanceCalcEarth();
-        mapMatching.setMaxVisitedNodes((int) 1e10); 
+        mapMatching.setMaxVisitedNodes((int) 1e10); // need to set this high to handle long gaps
         MiniPerfTest miniPerf = new MiniPerfTest() {
             @Override
             public int doCalc(boolean warmup, int run) {
             	boolean foundPath = false;
+            	
+            	// keep going until we find a path (which we may not for certain start/end points)
             	while (!foundPath) {
-		            double lat0 = rand.nextDouble() * latDelta + bbox.minLat;
-		            double lon0 = rand.nextDouble() * lonDelta + bbox.minLon;
-		            double lat1 = rand.nextDouble() * latDelta + bbox.minLat;
-		            double lon1 = rand.nextDouble() * lonDelta + bbox.minLon;
-		            double sampleProportion = rand.nextDouble();
+            		
+            		// create random points and find route between:
+		            double lat0 = bbox.minLat + rand.nextDouble() * latDelta;
+		            double lon0 = bbox.minLon + rand.nextDouble() * lonDelta;
+		            double lat1 = bbox.minLat + rand.nextDouble() * latDelta;
+		            double lon1 = bbox.minLon + rand.nextDouble() * lonDelta;
 		            GHResponse r = hopper.route(new GHRequest(lat0, lon0, lat1, lon1));
+		            
+		            // if found, use it for map mathching:
 		            if (!r.hasErrors()) {
 		            	foundPath = true;
-		            	long t = 0;
-		                List<GPXEntry> mock = new ArrayList<GPXEntry>();
+		            	long time = 0;
+			            double sampleProportion = rand.nextDouble();
 		                GHPoint prev = null;
+		                List<GPXEntry> mock = new ArrayList<GPXEntry>();
 		                PointList points = r.getBest().getPoints();
+		                // loop through points and add (approximately) sampleProportion of them:
 		            	for (GHPoint p : points) {
 		            		if (null != prev && rand.nextDouble() < sampleProportion) {
+		            			// estimate a reasonable time taken since the last point, so we
+		            			// can give the GPXEntry a time. Use the distance between the
+		            			// points and a random speed to estimate a time.
 		            			double dx = distCalc.calcDist(prev.lat, prev.lon, p.lat, p.lon);
 		            			double speedKPH = rand.nextDouble() * 100;
 		            			double dt = (dx / 1000) / speedKPH * 3600000;
-		            			t += (long) dt;
-		            			mock.add(new GPXEntry(p, t));
+		            			time += (long) dt;
+		            			// randomise the point lat/lon (i.e. so it's not exactly on the route):
+		            			GHPoint randomised = distCalc.projectCoordinate(p.lat, p.lat, 20 * rand.nextDouble(), 360 * rand.nextDouble());
+		            			mock.add(new GPXEntry(randomised, time));
 		            		}
 		            	}		            	
-		            	// now match:
+		            	// now match, provided there are enough points
 		            	if (mock.size() > 2) {
-		            		MatchResult match = mapMatching.doWork(mock);		            		
+		            		mapMatching.doWork(mock);		            		
+		            	} else {
+		            		foundPath = false; // retry
 		            	}
-		            	// return something else?
+		            	
+		            	// TODO: do we need to return something non-trivial?
 		            	return 0;
 		            }		            
             	}
@@ -188,7 +205,6 @@ public class Measurement {
     void print(String prefix, MiniPerfTest perf) {
         logger.info(prefix + ": " + perf.getReport());
         put(prefix + ".sum", perf.getSum());
-//        put(prefix+".rms", perf.getRMS());
         put(prefix + ".min", perf.getMin());
         put(prefix + ".mean", perf.getMean());
         put(prefix + ".max", perf.getMax());
