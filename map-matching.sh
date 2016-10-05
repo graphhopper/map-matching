@@ -65,7 +65,7 @@ elif [ "$1" = "action=measurement" ]; then
                 key=${line%%=*}
                 value=$(printf "%-10s" ${line##*=})
                 if [ "$first" = true ] ; then
-                    echo printf "%-30s%s" $key $value >> $values
+                    printf "%-30s%s" $key $value >> $values
                 else
                     echo sed -ir "s/($key.*)/\1$value/g" $values
                     sed -ir "s/($key.*)/\1$value/g" $values
