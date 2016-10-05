@@ -56,7 +56,7 @@ elif [ "$1" = "action=measurement" ]; then
         commits=$(git rev-list HEAD -n $last_commits)
         first=true
         for commit in $commits; do
-            git checkout $commit -q
+            git checkout $commit
             git log -n 1 --pretty=oneline >> $fname
             mvn --projects matching-tools -DskipTests=true clean install assembly:single
             rm -f $measurement_fname
@@ -65,8 +65,9 @@ elif [ "$1" = "action=measurement" ]; then
                 key=${line%%=*}
                 value=$(printf "%-10s" ${line##*=})
                 if [ "$first" = true ] ; then
-                    echo $key$value >> $values
+                    echo printf "%-30s%s" $key $value >> $values
                 else
+                    echo sed -ir "s/($key.*)/\1$value/g" $values
                     sed -ir "s/($key.*)/\1$value/g" $values
                 fi
             done < $measurement_fname

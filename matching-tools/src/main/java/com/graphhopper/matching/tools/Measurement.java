@@ -115,7 +115,7 @@ public class Measurement {
             logger.error("Problem while measuring " + graphLocation, ex);
             put("error", ex.toString());
         } finally {
-            put("measurement.gitinfo", gitCommit);
+//            put("measurement.gitinfo", gitCommit);
             put("measurement.count", count);
             put("measurement.seed", seed);
             put("measurement.time", sw.stop().getTime());
@@ -123,8 +123,7 @@ public class Measurement {
             put("measurement.totalMB", Helper.getTotalMB());
             put("measurement.usedMB", Helper.getUsedMB());
             try {
-                store(new FileWriter(propLocation), "measurement finish, "
-                        + new Date().toString() + ", " + Constants.BUILD_DATE);
+                store(new FileWriter(propLocation));
             } catch (IOException ex) {
                 logger.error("Problem while storing properties " + graphLocation + ", " + propLocation, ex);
             }
@@ -215,8 +214,7 @@ public class Measurement {
         properties.put(key, "" + val);
     }
 
-    private void store(FileWriter fileWriter, String comment) throws IOException {
-        fileWriter.append("#" + comment + "\n");
+    private void store(FileWriter fileWriter) throws IOException {
         for (Entry<String, String> e : properties.entrySet()) {
             fileWriter.append(e.getKey());
             fileWriter.append("=");
