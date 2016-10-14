@@ -59,9 +59,6 @@
         <module>matching-core</module>
         <module>matching-web</module>
         <module>matching-tools</module>
-        <!--
-        <module>matching-vaadin</module>
-        -->
     </modules>
         
     <build>        
