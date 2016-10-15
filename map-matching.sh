@@ -38,8 +38,8 @@ elif [ "$1" = "action=measurement" ]; then
     current_commit=$(git log -n 1 --pretty=oneline | cut -d' ' -f1)
     function startMeasurement {
         echo -e "\nperforming measurement for commit $current_commit"
-        echo $measurement_fname
-        echo "$JAVA" $JAVA_OPTS -cp "$JAR" com.graphhopper.matching.tools.Measurement $ARGS measurement.location="$measurement_fname"
+        mvn --projects matching-tools -DskipTests=true clean install assembly:single
+        rm -f "$measurement_fname"
         "$JAVA" $JAVA_OPTS -cp "$JAR" com.graphhopper.matching.tools.Measurement $ARGS measurement.location="$measurement_fname"
     }
 
@@ -61,8 +61,6 @@ elif [ "$1" = "action=measurement" ]; then
         for commit in $commits; do
             git checkout "$commit"
             git log -n 1 --pretty=oneline >> "$fname"
-            mvn --projects matching-tools -DskipTests=true clean install assembly:single
-            rm -f "$measurement_fname"
             startMeasurement
             while read -r line; do
                 key=${line%%=*}

@@ -85,7 +85,7 @@ public class Measurement {
                 (LocationIndexTree) hopper.getLocationIndex());
         // TODO: allow tests of non-CH?
         AlgorithmOptions algoOpts = AlgorithmOptions.start()
-                .maxVisitedNodes((int) 1e10)
+                .maxVisitedNodes((int) 1e20)
                 .build();
         MapMatching mapMatching = new MapMatching(hopper, algoOpts);
         
@@ -150,6 +150,12 @@ public class Measurement {
         final double latDelta = bbox.maxLat - bbox.minLat;
         final double lonDelta = bbox.maxLon - bbox.minLon;
         final Random rand = new Random(seed);
+        // this takes a while, so we'll limit it to 100 tests:
+        int n = count;
+        if (n > 100) {
+            logger.warn("map matching query tests take a while, so we'll only do 100 iterations (instead of " + count + ")");
+            n = 100;
+        }
         MiniPerfTest miniPerf = new MiniPerfTest() {
             @Override
             public int doCalc(boolean warmup, int run) {
@@ -185,7 +191,7 @@ public class Measurement {
                                 time += (long) dt;
                                 // randomise the point lat/lon (i.e. so it's not
                                 // exactly on the route):
-                                GHPoint randomised = distCalc.projectCoordinate(p.lat, p.lat,
+                                GHPoint randomised = distCalc.projectCoordinate(p.lat, p.lon,
                                         20 * rand.nextDouble(), 360 * rand.nextDouble());
                                 mock.add(new GPXEntry(randomised, time));
                             }
@@ -203,14 +209,13 @@ public class Measurement {
                 }
                 return 0;
             }
-        }.setIterations(count).start();
+        }.setIterations(n).start();
         print("map_match", miniPerf);
-
     }
 
     void print(String prefix, MiniPerfTest perf) {
         logger.info(prefix + ": " + perf.getReport());
-        put(prefix + ".sum", perf.getSum());
+        put(prefix + ".sum", perf.getSum());                                        
         put(prefix + ".min", perf.getMin());
         put(prefix + ".mean", perf.getMean());
         put(prefix + ".max", perf.getMax());
