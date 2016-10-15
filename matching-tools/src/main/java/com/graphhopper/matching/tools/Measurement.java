@@ -22,7 +22,9 @@ import com.graphhopper.GHResponse;
 import com.graphhopper.GraphHopper;
 import com.graphhopper.matching.LocationIndexMatch;
 import com.graphhopper.matching.MapMatching;
+import com.graphhopper.matching.MatchResult;
 import com.graphhopper.reader.osm.GraphHopperOSM;
+import com.graphhopper.routing.AlgorithmOptions;
 import com.graphhopper.routing.util.*;
 import com.graphhopper.storage.GraphHopperStorage;
 import com.graphhopper.storage.index.LocationIndexTree;
@@ -75,14 +77,18 @@ public class Measurement {
         hopper.getCHFactoryDecorator().setEnabled(true);
         hopper.getCHFactoryDecorator().setDisablingAllowed(true);
         hopper.importOrLoad();
-        String vehicleStr = args.get("graph.flag_encoders", "car");
-        FlagEncoder encoder = hopper.getEncodingManager().getEncoder(vehicleStr);
+        
+        // and map-matching stuff
         GraphHopperStorage graph = hopper.getGraphHopperStorage();
         bbox = graph.getBounds();
         LocationIndexMatch locationIndex = new LocationIndexMatch(graph,
                 (LocationIndexTree) hopper.getLocationIndex());
-        MapMatching mapMatching = new MapMatching(graph, locationIndex, encoder);
-
+        // TODO: allow tests of non-CH?
+        AlgorithmOptions algoOpts = AlgorithmOptions.start()
+                .maxVisitedNodes((int) 1e10)
+                .build();
+        MapMatching mapMatching = new MapMatching(hopper, algoOpts);
+        
         // start tests:
         StopWatch sw = new StopWatch().start();
         try {
@@ -144,7 +150,6 @@ public class Measurement {
         final double latDelta = bbox.maxLat - bbox.minLat;
         final double lonDelta = bbox.maxLon - bbox.minLon;
         final Random rand = new Random(seed);
-        mapMatching.setMaxVisitedNodes((int) 1e10); // need to set this high to handle long gaps
         MiniPerfTest miniPerf = new MiniPerfTest() {
             @Override
             public int doCalc(boolean warmup, int run) {
@@ -187,13 +192,12 @@ public class Measurement {
                         }
                         // now match, provided there are enough points
                         if (mock.size() > 2) {
-                            mapMatching.doWork(mock);
+                            MatchResult match = mapMatching.doWork(mock);
+                            // return something non-trivial, to avoid JVM optimizing away
+                            return match.getEdgeMatches().size();
                         } else {
                             foundPath = false; // retry
                         }
-
-                        // TODO: do we need to return something non-trivial?
-                        return 0;
                     }
                 }
                 return 0;
