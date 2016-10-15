@@ -189,6 +189,7 @@ public class Measurement {
                                         20 * rand.nextDouble(), 360 * rand.nextDouble());
                                 mock.add(new GPXEntry(randomised, time));
                             }
+                            prev = p;
                         }
                         // now match, provided there are enough points
                         if (mock.size() > 2) {
