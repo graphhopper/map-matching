@@ -40,6 +40,7 @@ import com.graphhopper.storage.index.QueryResult;
 import com.graphhopper.util.*;
 import com.graphhopper.util.shapes.GHPoint;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -252,23 +253,24 @@ public class MapMatching {
         		int closestNode = qr.getClosestNode();
         		if (queryGraph.isVirtualNode(closestNode)) {
         			// get virtual edges:
-        			List<VirtualEdgeIteratorState> virtualEdges = new ArrayList<VirtualEdgeIteratorState>();
+        			List<VirtualEdgePair> virtualEdgePairs = new ArrayList<VirtualEdgePair>();
         			EdgeIterator iter = queryGraph.createEdgeExplorer().setBaseNode(closestNode);
         			while (iter.next()) {
                     	if (queryGraph.isVirtualEdge(iter.getEdge())) {
-                    		virtualEdges.add((VirtualEdgeIteratorState) queryGraph.getEdgeIteratorState(iter.getEdge(), iter.getAdjNode()));
+                    		VirtualEdgePair virtualEdgePair = new VirtualEdgePair(iter, queryGraph);
+                    		virtualEdgePairs.add(virtualEdgePair);
     	                }
                     }
-        			assert virtualEdges.size() == 2;
+        			assert virtualEdgePairs.size() == 2;
         			
         			// create a candidate for each: the candidate being the querypoint plus the virtual edge to favour. Note
         			// that we favour the virtual edge by *unfavoring* the rest, so we need to record these.
-        			VirtualEdgeIteratorState e1 = virtualEdges.get(0);
-        			VirtualEdgeIteratorState e2 = virtualEdges.get(1);
+        			VirtualEdgePair e1 = virtualEdgePairs.get(0);
+        			VirtualEdgePair e2 = virtualEdgePairs.get(1);
         			for (int j = 0; j < 2; j++) {
         				// get favored/unfavored edges:
-        				VirtualEdgeIteratorState incomingVirtualEdge = j == 0 ? e1 : e2;
-        				VirtualEdgeIteratorState outgoingVirtualEdge = j == 0 ? e2 : e1;
+        				VirtualEdgePair incomingVirtualEdgePair = j == 0 ? e1 : e2;        				
+        				VirtualEdgePair outgoingVirtualEdgePair = j == 0 ? e2 : e1;
             			// create candidate
                 		QueryResult vqr = new QueryResult(qr.getQueryPoint().lat, qr.getQueryPoint().lon);
                 		vqr.setQueryDistance(qr.getQueryDistance());
@@ -277,7 +279,7 @@ public class MapMatching {
                 		vqr.setSnappedPosition(qr.getSnappedPosition());
                 		vqr.setClosestEdge(qr.getClosestEdge());
                 		vqr.calcSnappedPoint(distanceCalc);
-                		GPXExtension candidate = new GPXExtension(gpxEntry, vqr, incomingVirtualEdge, outgoingVirtualEdge);
+                		GPXExtension candidate = new GPXExtension(gpxEntry, vqr, incomingVirtualEdgePair, outgoingVirtualEdgePair);
             			candidates.add(candidate);
         			}
         		} else {
@@ -366,15 +368,16 @@ public class MapMatching {
             for (GPXExtension to : timeStep.candidates) {
                 RoutingAlgorithm algo = algoFactory.createAlgo(queryGraph, algoOptions);
                 // enforce heading if required:
-                if (from.isDirected()) {
-                	from.incomingVirtualEdge.setUnfavored(true);
-                }    
-                if (to.isDirected()) {
-                	// unfavor the favour virtual edge
-                	to.outgoingVirtualEdge.setUnfavored(true);
-                }
+                if (from.isDirected()) 
+                	from.incomingVirtualPair.setUnfavored(true);
+                if (to.isDirected())
+                	to.outgoingVirtualPair.setUnfavored(true);
                 final Path path = algo.calcPath(from.getQueryResult().getClosestNode(), to.getQueryResult().getClosestNode());
-                queryGraph.clearUnfavoredStatus();
+                // remove heading enforcement:
+                if (from.isDirected()) 
+                	from.incomingVirtualPair.setUnfavored(false);
+                if (to.isDirected())
+                	to.outgoingVirtualPair.setUnfavored(false);
                 if (path.isFound()) {
                     timeStep.addRoadPath(from, to, path);
                     final double transitionLogProbability = probabilities
