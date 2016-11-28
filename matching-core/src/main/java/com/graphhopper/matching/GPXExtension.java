@@ -34,7 +34,7 @@ public class GPXExtension {
     public DirectedVirtualEdgeQuadruple virtualEdgeQuadruple;
 
     public GPXExtension(GPXEntry entry, QueryResult queryResult) {
-    	this.entry = entry;
+        this.entry = entry;
         this.queryResult = queryResult;
         this.directed = false;
     }
@@ -46,7 +46,7 @@ public class GPXExtension {
     }
 
     public boolean isDirected() {
-    	return directed;
+        return directed;
     }
         
     @Override
