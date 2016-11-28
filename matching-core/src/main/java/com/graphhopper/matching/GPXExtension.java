@@ -31,8 +31,7 @@ public class GPXExtension {
     final GPXEntry entry;
     final QueryResult queryResult;
     private boolean directed;
-    public VirtualEdgePair incomingVirtualPair;
-    public VirtualEdgePair outgoingVirtualPair;
+    public DirectedVirtualEdgeQuadruple virtualEdgeQuadruple;
 
     public GPXExtension(GPXEntry entry, QueryResult queryResult) {
     	this.entry = entry;
@@ -40,10 +39,9 @@ public class GPXExtension {
         this.directed = false;
     }
     
-    public GPXExtension(GPXEntry entry, QueryResult queryResult, VirtualEdgePair incomingVirtualPair, VirtualEdgePair outgoingVirtualPair) {
+    public GPXExtension(GPXEntry entry, QueryResult queryResult, DirectedVirtualEdgeQuadruple virtualEdgeQuadruple) {
         this(entry, queryResult);
-        this.incomingVirtualPair = incomingVirtualPair;
-        this.outgoingVirtualPair = outgoingVirtualPair;
+        this.virtualEdgeQuadruple = virtualEdgeQuadruple;
         this.directed = true;
     }
 

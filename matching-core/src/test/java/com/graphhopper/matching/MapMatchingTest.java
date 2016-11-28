@@ -208,6 +208,7 @@ public class MapMatchingTest {
         MatchResult mr = mapMatching.doWork(inputGPXEntries);
         assertEquals(Arrays.asList("Weinligstraße", "Weinligstraße", "Weinligstraße",
                 "Fechnerstraße", "Fechnerstraße"), fetchStreets(mr.getEdgeMatches()));
+        // TODO: test these individually, not combined? I.e. this would pass if both were zero ...
         assertEquals(mr.getGpxEntriesLength(), mr.getMatchLength(), 11); // TODO: this should be around 300m according to Google ... need to check
         assertEquals(mr.getGpxEntriesMillis(), mr.getMatchMillis(), 3000);
     }

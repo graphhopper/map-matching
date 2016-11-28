@@ -188,7 +188,8 @@ public class MapMatching {
 
         // finally, extract the result:
         final EdgeExplorer explorer = queryGraph.createEdgeExplorer(edgeFilter);
-        MatchResult matchResult = computeMatchResult(seq, filteredGPXEntries, queriesPerEntry, explorer);
+        MatchResult matchResult = computeMatchResult(seq, gpxList, queriesPerEntry, explorer);
+//        MatchResult matchResult = computeMatchResult(seq, gpxList, queriesPerEntry, explorer);
 
         return matchResult;
     }
@@ -244,34 +245,16 @@ public class MapMatching {
         	GPXEntry gpxEntry = filteredGPXEntries.get(i);
         	List<QueryResult> queryResults = queriesPerEntry.get(i);
                 
-        	// as discussed in #51, if the closest node is virtual (i.e. inner-link) then we need to create two candidates:
-        	// one for each direction of each virtual edge. For example, in A---X---B, we'd add the edges A->X and B->X. Note
-        	// that we add the edges with an incoming direction (i.e. A->X not X->A). We can choose to enforce the incoming/outgoing
-        	// direction with the third argument of queryGraph.enforceHeading
         	List<GPXExtension> candidates = new ArrayList<GPXExtension>();
         	for (QueryResult qr: queryResults) {
         		int closestNode = qr.getClosestNode();
         		if (queryGraph.isVirtualNode(closestNode)) {
-        			// get virtual edges:
-        			List<VirtualEdgePair> virtualEdgePairs = new ArrayList<VirtualEdgePair>();
-        			EdgeIterator iter = queryGraph.createEdgeExplorer().setBaseNode(closestNode);
-        			while (iter.next()) {
-                    	if (queryGraph.isVirtualEdge(iter.getEdge())) {
-                    		VirtualEdgePair virtualEdgePair = new VirtualEdgePair(iter, queryGraph);
-                    		virtualEdgePairs.add(virtualEdgePair);
-    	                }
-                    }
-        			assert virtualEdgePairs.size() == 2;
-        			
-        			// create a candidate for each: the candidate being the querypoint plus the virtual edge to favour. Note
-        			// that we favour the virtual edge by *unfavoring* the rest, so we need to record these.
-        			VirtualEdgePair e1 = virtualEdgePairs.get(0);
-        			VirtualEdgePair e2 = virtualEdgePairs.get(1);
-        			for (int j = 0; j < 2; j++) {
-        				// get favored/unfavored edges:
-        				VirtualEdgePair incomingVirtualEdgePair = j == 0 ? e1 : e2;        				
-        				VirtualEdgePair outgoingVirtualEdgePair = j == 0 ? e2 : e1;
-            			// create candidate
+        			// if virtual, create four candidates: one for each virtual edge around the virtual node ...
+        			List<DirectedVirtualEdgeQuadruple> virtualEdgeQuads = new ArrayList<DirectedVirtualEdgeQuadruple>();
+        			for (int favoured = 0; favoured < 4; favoured++) {
+        				DirectedVirtualEdgeQuadruple veq = new DirectedVirtualEdgeQuadruple(closestNode, queryGraph, favoured);
+        				virtualEdgeQuads.add(veq);
+        				// create candidate
                 		QueryResult vqr = new QueryResult(qr.getQueryPoint().lat, qr.getQueryPoint().lon);
                 		vqr.setQueryDistance(qr.getQueryDistance());
                 		vqr.setClosestNode(qr.getClosestNode());
@@ -279,9 +262,10 @@ public class MapMatching {
                 		vqr.setSnappedPosition(qr.getSnappedPosition());
                 		vqr.setClosestEdge(qr.getClosestEdge());
                 		vqr.calcSnappedPoint(distanceCalc);
-                		GPXExtension candidate = new GPXExtension(gpxEntry, vqr, incomingVirtualEdgePair, outgoingVirtualEdgePair);
+                		GPXExtension candidate = new GPXExtension(gpxEntry, vqr, veq);
             			candidates.add(candidate);
         			}
+        			
         		} else {
         			// just add the real edge, undirected
         			GPXExtension candidate = new GPXExtension(gpxEntry, qr);
@@ -368,16 +352,16 @@ public class MapMatching {
             for (GPXExtension to : timeStep.candidates) {
                 RoutingAlgorithm algo = algoFactory.createAlgo(queryGraph, algoOptions);
                 // enforce heading if required:
-                if (from.isDirected()) 
-                	from.incomingVirtualPair.setUnfavored(true);
+                if (from.isDirected())
+                	from.virtualEdgeQuadruple.setFavouringOfUnfavored(true);
                 if (to.isDirected())
-                	to.outgoingVirtualPair.setUnfavored(true);
+                	to.virtualEdgeQuadruple.setFavouringOfUnfavored(true);
                 final Path path = algo.calcPath(from.getQueryResult().getClosestNode(), to.getQueryResult().getClosestNode());
                 // remove heading enforcement:
-                if (from.isDirected()) 
-                	from.incomingVirtualPair.setUnfavored(false);
+                if (from.isDirected())
+                	from.virtualEdgeQuadruple.setFavouringOfUnfavored(false);
                 if (to.isDirected())
-                	to.outgoingVirtualPair.setUnfavored(false);
+                	to.virtualEdgeQuadruple.setFavouringOfUnfavored(false);
                 if (path.isFound()) {
                     timeStep.addRoadPath(from, to, path);
                     final double transitionLogProbability = probabilities
