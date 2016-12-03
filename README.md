@@ -26,6 +26,7 @@ Java 8 and Maven >=3.3 are required. For the 'core' module Java 7 is sufficient.
 Then you need to import the area you want to do map-matching on:
 
 ```bash
+git checkout [stable-branch] # optional
 ./map-matching.sh action=import datasource=./some-dir/osm-file.pbf vehicle=car
 ```
 
@@ -109,8 +110,8 @@ with this maven dependency:
 <dependency>
     <groupId>com.graphhopper</groupId>
     <artifactId>map-matching</artifactId>
-    <!-- or 0.8-SNAPSHOT for the unstable -->
-    <version>0.7.0</version>
+    <!-- or 0.9-SNAPSHOT for the unstable -->
+    <version>0.8.2</version>
 </dependency>
 ```
 
