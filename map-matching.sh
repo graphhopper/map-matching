@@ -53,8 +53,9 @@ elif [ "$1" = "action=measurement" ]; then
         # the following checks out the last commits, and tests each one. The code looks a bit
         # messier than that, as we merge the results into a single file (to make it easier to
         # compare.
-        combined="measurement_$(git log --format="%h" | head -n $last_commits | tail -n1)_$(git log --format="%h" | head -n1)"
+        combined="measurement_$(git log --format="%h" | head -n $last_commits | tail -n1)_$(git log --format="%h" | head -n1).properties"
         tmp_values="$combined.values"
+        rm -f "$tmp_values"
         echo -e "commits (in order tested):\n--------------------------\n" > "$combined"
         commits=$(git rev-list HEAD -n "$last_commits" | tac) # NOTE: tac is to reverse so we start with oldest first
         first=true
@@ -76,7 +77,7 @@ elif [ "$1" = "action=measurement" ]; then
                 if [ "$first" = true ] ; then
                     printf "%-30s%s\n" "$key" "$value" >> "$tmp_values"
                 else
-                    if grep "$key" "$tmp_values"; then
+                    if grep "$key" "$tmp_values" > /dev/null; then
                         sed -ri "s/($key.*)/\1$value/g" "$tmp_values"
                     else
                         # add a new row, using $empty_pad to get the column in the right place
@@ -91,13 +92,53 @@ elif [ "$1" = "action=measurement" ]; then
         echo "$header" >> "$combined"
         echo "$subheader" >> "$combined"
         cat "$tmp_values" >> "$combined"
+
+        # now plot (if supported)
+        plot=1
+        if ! type "bc" > /dev/null; then
+            echo "install `bc` if you want plots"
+            plot=0
+        fi
+        if ! type "gnuplot" > /dev/null; then
+            echo "install `gnuplot` if you want plots"
+            plot=0
+        fi
+        if [ $last_commits -lt 2 ]; then
+            echo "plots are only performed if you specify a history of more than one commit"
+            plot=0
+        fi
+
+        if [ $plot -eq 1 ]; then
+            while read -r line; do
+                data=
+                i=0
+                title=$(echo $line | cut -d" " -f1)
+                mx=
+                for commit in $commits; do
+                    val=$(echo $line | cut -d" " -f"$((i+2))")
+                    [[ ( $i -eq 0 || $(echo "$val > $mx" | bc) -eq 1 ) ]] && mx=$val
+                    data="$data$i\t$(echo $commit | cut -c1-7)\t$val\n"
+                    i=$((i + 1))
+                done
+                if [ $(echo "$mx > 0" | bc) -eq 1 ]; then
+                    mn=0
+                else
+                    mn=$mx
+                    mx=0
+                fi
+                echo -e "$data" | gnuplot -e "set terminal dumb; set yrange [$mn:$mx]; set boxwidth 0.5; set style fill solid; set border 1; unset tics; set xtics border; unset key; set title '$title'; plot '<cat' using 1:3:xtic(2) with boxes" >> "$combined"
+            done < "$tmp_values"
+        fi
+
+        # display it:
+        echo ""
+        cat "$combined"
+
         # tidy up
         rm "$tmp_values"
         # revert checkout
         git checkout "$current_commit"
         # done:
-        echo ""
-        cat "$combined"
         exit 0
     fi
 else
