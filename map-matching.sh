@@ -34,7 +34,7 @@ elif [ "$1" = "action=test" ]; then
 elif [ "$1" = "action=measurement" ]; then
     set_jar "core"
     ARGS="config=$CONFIG graph.location=$GRAPH datareader.file=$2 prepare.ch.weightings=fastest graph.flag_encoders=car prepare.min_network_size=10000 prepare.min_oneway_network_size=10000"
-    current_commit=$(git log -n 1 --pretty=oneline | cut -d' ' -f1)
+    current_branch=$(git rev-parse --abbrev-ref HEAD)
     function startMeasurement {
         echo -e "\nperforming measurement for commit $current_commit"
         mvn --projects matching-core -DskipTests=true clean install assembly:single
@@ -56,7 +56,7 @@ elif [ "$1" = "action=measurement" ]; then
         combined="measurement_$(git log --format="%h" | head -n $last_commits | tail -n1)_$(git log --format="%h" | head -n1).properties"
         tmp_values="$combined.values"
         rm -f "$tmp_values"
-        echo -e "commits (in order tested):\n--------------------------\n" > "$combined"
+        echo -e "commits:\n--------------------------\n" > "$combined"
         commits=$(git rev-list HEAD -n "$last_commits" | tac) # NOTE: tac is to reverse so we start with oldest first
         first=true
         empty_pad=""
@@ -64,7 +64,7 @@ elif [ "$1" = "action=measurement" ]; then
         subheader=$header
         for commit in $commits; do
             git checkout "$commit"
-            git log -n 1 --pretty=oneline >> "$combined"
+            git log --format="%h [%cd] %s" --date=short -n 1 >> "$combined"
             # do measurement for this commit
             startMeasurement
             # update headers:
@@ -92,6 +92,11 @@ elif [ "$1" = "action=measurement" ]; then
         echo "$header" >> "$combined"
         echo "$subheader" >> "$combined"
         cat "$tmp_values" >> "$combined"
+        echo "" >> "$combined"
+
+        # show as is:
+        echo ""
+        cat "$combined"
 
         # now plot (if supported)
         plot=1
@@ -108,36 +113,41 @@ elif [ "$1" = "action=measurement" ]; then
             plot=0
         fi
 
+        # remove tmp file when done
+        trap "rm '$tmp_values'; git checkout $current_branch" EXIT INT TERM
+
+        # plot all to file first, then plot again for interactivity:
         if [ $plot -eq 1 ]; then
-            while read -r line; do
-                data=
-                i=0
-                title=$(echo $line | cut -d" " -f1)
-                mx=
-                for commit in $commits; do
-                    val=$(echo $line | cut -d" " -f"$((i+2))")
-                    [[ ( $i -eq 0 || $(echo "$val > $mx" | bc) -eq 1 ) ]] && mx=$val
-                    data="$data$i\t$(echo $commit | cut -c1-7)\t$val\n"
-                    i=$((i + 1))
-                done
-                if [ $(echo "$mx > 0" | bc) -eq 1 ]; then
-                    mn=0
-                else
-                    mn=$mx
-                    mx=0
-                fi
-                echo -e "$data" | gnuplot -e "set terminal dumb; set yrange [$mn:$mx]; set boxwidth 0.5; set style fill solid; set border 1; unset tics; set xtics border; unset key; set title '$title'; plot '<cat' using 1:3:xtic(2) with boxes" >> "$combined"
-            done < "$tmp_values"
+            for first in {0..1}; do
+                while read -u 3 -r line; do
+                    data=
+                    i=0
+                    title=$(echo $line | cut -d" " -f1)
+                    mx=
+                    for commit in $commits; do
+                        val=$(echo $line | cut -d" " -f"$((i+2))")
+                        [[ ( $i -eq 0 || $(echo "$val > $mx" | bc) -eq 1 ) ]] && mx=$val
+                        data="$data$i\t$(echo $commit | cut -c1-7)\t$val\n"
+                        i=$((i + 1))
+                    done
+                    if [ $(echo "$mx > 0" | bc) -eq 1 ]; then
+                        mn=0
+                    else
+                        mn=$mx
+                        mx=0
+                    fi
+                    chart=$(echo -e "$data" | gnuplot -e "set terminal dumb; set yrange [$mn:$mx]; set boxwidth 0.5; set style fill solid; set border 1; unset tics; set xtics border; unset key; set title '$title'; plot '<cat' using 1:3:xtic(2) with boxes")
+                    if [ $first -eq 0 ]; then
+                        echo -e "$chart" >> "$combined"
+                    else
+                        echo ""
+                        echo -e "$chart"
+                        read -rsp $'Press any key to view the next chart, or CTRL + C to exit ...\n' -n1 key
+                    fi
+                done 3< "$tmp_values"
+            done
         fi
 
-        # display it:
-        echo ""
-        cat "$combined"
-
-        # tidy up
-        rm "$tmp_values"
-        # revert checkout
-        git checkout "$current_commit"
         # done:
         exit 0
     fi
