@@ -46,11 +46,14 @@ elif [ "$1" = "action=measurement" ]; then
     last_commits=$3
     if [ -z "$last_commits" ]; then
         startMeasurement
+        echo ""
+        cat "$measurement_fname"
+        exit 0
     else
         # the following checks out the last commits, and tests each one. The code looks a bit
         # messier than that, as we merge the results into a single file (to make it easier to
         # compare.
-        combined="measurement_$(git rev-list HEAD -n $last_commits | tail -n1)_$(git rev-list HEAD -n 1 | head -n1)"
+        combined="measurement_$(git log --format="%h" | head -n $last_commits | tail -n1)_$(git log --format="%h" | head -n1)"
         tmp_values="$combined.values"
         echo -e "commits (in order tested):\n--------------------------\n" > "$combined"
         commits=$(git rev-list HEAD -n "$last_commits")
@@ -68,7 +71,7 @@ elif [ "$1" = "action=measurement" ]; then
                 if [ "$first" = true ] ; then
                     printf "%-30s%s\n" "$key" "$value" >> "$tmp_values"
                 else
-                    if grep "$key" "$values"; then
+                    if grep "$key" "$tmp_values"; then
                         sed -ri "s/($key.*)/\1$value/g" "$tmp_values"
                     else
                         # add a new row, using $empty_pad to get the column in the right place
@@ -85,11 +88,11 @@ elif [ "$1" = "action=measurement" ]; then
         rm "$tmp_values"
         # revert checkout
         git checkout "$current_commit"
+        # done:
+        echo ""
+        cat "$combined"
+        exit 0
     fi
-    # in either case, echo the file:
-    echo ""
-    cat "$measurement_fname"
-    exit 0
 else
     set_jar "core"
     ARGS="$@"
