@@ -15,7 +15,7 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-package com.graphhopper.matching.tools;
+package com.graphhopper.matching.util;
 
 import com.graphhopper.GHRequest;
 import com.graphhopper.GHResponse;
