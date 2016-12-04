@@ -113,8 +113,8 @@ elif [ "$1" = "action=measurement" ]; then
             plot=0
         fi
 
-        # remove tmp file when done
-        trap "rm '$tmp_values'; git checkout $current_branch" EXIT INT TERM
+        # remove tmp file and change back to original branch when done:
+        trap "rm -f '$tmp_values'; git checkout $current_branch" EXIT
 
         # plot all to file first, then plot again for interactivity:
         if [ $plot -eq 1 ]; then
