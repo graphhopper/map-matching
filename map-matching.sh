@@ -56,7 +56,7 @@ elif [ "$1" = "action=measurement" ]; then
         combined="measurement_$(git log --format="%h" | head -n $last_commits | tail -n1)_$(git log --format="%h" | head -n1)"
         tmp_values="$combined.values"
         echo -e "commits (in order tested):\n--------------------------\n" > "$combined"
-        commits=$(git rev-list HEAD -n "$last_commits")
+        commits=$(git rev-list HEAD -n "$last_commits" | tac) # NOTE: tac is to reverse so we start with oldest first
         first=true
         empty_pad=""
         header=$(printf "%30s" "")
