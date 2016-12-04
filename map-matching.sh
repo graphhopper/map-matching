@@ -59,11 +59,16 @@ elif [ "$1" = "action=measurement" ]; then
         commits=$(git rev-list HEAD -n "$last_commits")
         first=true
         empty_pad=""
+        header=$(printf "%30s" "")
+        subheader=$header
         for commit in $commits; do
             git checkout "$commit"
             git log -n 1 --pretty=oneline >> "$combined"
             # do measurement for this commit
             startMeasurement
+            # update headers:
+            header=$(printf "%s%-20s" "$header" $(echo "$commit" | cut -c1-7))
+            subheader=$(printf "%s%-20s" "$subheader" "-------")
             # now merge it:
             while read -r line; do
                 key=${line%%=*}
@@ -83,6 +88,8 @@ elif [ "$1" = "action=measurement" ]; then
             empty_pad=$(printf "%s%-20s" "$empty_pad" "")
         done
         echo -e "\nmeasurements:\n-------------\n" >> "$combined"
+        echo "$header" >> "$combined"
+        echo "$subheader" >> "$combined"
         cat "$tmp_values" >> "$combined"
         # tidy up
         rm "$tmp_values"
