@@ -119,6 +119,7 @@ elif [ "$1" = "action=measurement" ]; then
         # plot all to file first, then plot again for interactivity:
         if [ $plot -eq 1 ]; then
             for first in {0..1}; do
+                num_lines_last_chart=0
                 while read -u 3 -r line; do
                     data=
                     i=0
@@ -140,7 +141,10 @@ elif [ "$1" = "action=measurement" ]; then
                     if [ $first -eq 0 ]; then
                         echo -e "$chart" >> "$combined"
                     else
-                        echo ""
+                        # clear old one:
+                        printf "%0.s\033[1A\033[K" $(seq 0 $((num_lines_last_chart + 1)))
+                        num_lines_last_chart=$(echo -e "$chart" | wc -l)
+                        # show this one:
                         echo -e "$chart"
                         read -rsp $'Press any key to view the next chart, or CTRL + C to exit ...\n' -n1 key
                     fi
