@@ -92,67 +92,14 @@ elif [ "$1" = "action=measurement" ]; then
         echo "$header" >> "$combined"
         echo "$subheader" >> "$combined"
         cat "$tmp_values" >> "$combined"
-        echo "" >> "$combined"
 
         # show as is:
         echo ""
         cat "$combined"
 
-        # now plot (if supported)
-        plot=1
-        if ! type "bc" > /dev/null; then
-            echo "install `bc` if you want plots"
-            plot=0
-        fi
-        if ! type "gnuplot" > /dev/null; then
-            echo "install `gnuplot` if you want plots"
-            plot=0
-        fi
-        if [ $last_commits -lt 2 ]; then
-            echo "plots are only performed if you specify a history of more than one commit"
-            plot=0
-        fi
-
-        # remove tmp file and change back to original branch when done:
-        trap "rm -f '$tmp_values'; git checkout $current_branch" EXIT
-
-        # plot all to file first, then plot again for interactivity:
-        if [ $plot -eq 1 ]; then
-            for first in {0..1}; do
-                num_lines_last_chart=0
-                while read -u 3 -r line; do
-                    data=
-                    i=0
-                    title=$(echo $line | cut -d" " -f1)
-                    mx=
-                    for commit in $commits; do
-                        val=$(echo $line | cut -d" " -f"$((i+2))")
-                        [[ ( $i -eq 0 || $(echo "$val > $mx" | bc) -eq 1 ) ]] && mx=$val
-                        data="$data$i\t$(echo $commit | cut -c1-7)\t$val\n"
-                        i=$((i + 1))
-                    done
-                    if [ $(echo "$mx > 0" | bc) -eq 1 ]; then
-                        mn=0
-                    else
-                        mn=$mx
-                        mx=0
-                    fi
-                    chart=$(echo -e "$data" | gnuplot -e "set terminal dumb; set yrange [$mn:$mx]; set boxwidth 0.5; set style fill solid; set border 1; unset tics; set xtics border; unset key; set title '$title'; plot '<cat' using 1:3:xtic(2) with boxes")
-                    if [ $first -eq 0 ]; then
-                        echo -e "$chart" >> "$combined"
-                    else
-                        # clear old one:
-                        printf "%0.s\033[1A\033[K" $(seq 0 $((num_lines_last_chart + 1)))
-                        num_lines_last_chart=$(echo -e "$chart" | wc -l)
-                        # show this one:
-                        echo -e "$chart"
-                        read -rsp $'Press any key to view the next chart, or CTRL + C to exit ...\n' -n1 key
-                    fi
-                done 3< "$tmp_values"
-            done
-        fi
-
-        # done:
+        # remove tmp file and change back to original branch and then we're done
+        rm -f '$tmp_values'
+        git checkout $current_branch
         exit 0
     fi
 else
