@@ -24,9 +24,9 @@ import com.graphhopper.routing.weighting.Weighting;
 import com.bmw.hmm.SequenceState;
 import com.bmw.hmm.ViterbiAlgorithm;
 import com.graphhopper.routing.AlgorithmOptions;
+import com.graphhopper.routing.DijkstraOneToMany;
 import com.graphhopper.routing.Path;
 import com.graphhopper.routing.QueryGraph;
-import com.graphhopper.routing.RoutingAlgorithm;
 import com.graphhopper.routing.RoutingAlgorithmFactory;
 import com.graphhopper.routing.ch.CHAlgoFactoryDecorator;
 import com.graphhopper.routing.ch.PrepareContractionHierarchies;
@@ -297,13 +297,13 @@ public class MapMatching {
         // time difference in seconds
         final double timeDiff
                 = (timeStep.observation.getTime() - prevTimeStep.observation.getTime()) / 1000.0;
-
+        
+        // TODO: ugly hack to just test the use of DijkstraOneToMany - not to be used in API (e.g. this ignored algoopts)
+        DijkstraOneToMany algo = new DijkstraOneToMany(queryGraph, algoOptions.getWeighting(), algoOptions.getTraversalMode());
         for (GPXExtension from : prevTimeStep.candidates) {
+        	algo.clear();
             for (GPXExtension to : timeStep.candidates) {
-                RoutingAlgorithm algo = algoFactory.createAlgo(queryGraph, algoOptions);
-                // System.out.println("algo " + algo.getName());
-                final Path path = algo.calcPath(from.getQueryResult().getClosestNode(),
-                        to.getQueryResult().getClosestNode());
+                final Path path = algo.calcPath(from.queryResult.getClosestNode(), to.queryResult.getClosestNode());
                 if (path.isFound()) {
                     timeStep.addRoadPath(from, to, path);
                     final double transitionLogProbability = probabilities
@@ -312,6 +312,7 @@ public class MapMatching {
                 }
             }
         }
+        algo.close();
     }
 
     private MatchResult computeMatchResult(List<SequenceState<GPXExtension, GPXEntry, Path>> seq,
