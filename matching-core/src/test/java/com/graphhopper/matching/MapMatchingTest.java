@@ -47,6 +47,8 @@ import java.util.List;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -82,7 +84,7 @@ public class MapMatchingTest {
 
         // force CH
         AlgorithmOptions chOpts = AlgorithmOptions.start()
-                .maxVisitedNodes(40)
+                .maxVisitedNodes(1000)
                 .hints(new PMap().put(Parameters.CH.DISABLE, false))
                 .build();
 
@@ -172,8 +174,6 @@ public class MapMatchingTest {
      */
     @Test
     public void testDistantPoints() {
-
-        // OK with 1000 visited nodes:
         MapMatching mapMatching = new MapMatching(hopper, algoOptions);
         List<GPXEntry> inputGPXEntries = createRandomGPXEntries(
                 new GHPoint(51.23, 12.18),
@@ -181,18 +181,48 @@ public class MapMatchingTest {
         MatchResult mr = mapMatching.doWork(inputGPXEntries);
         assertEquals(mr.getMatchLength(), 57653, 1);
         assertEquals(mr.getMatchMillis(), 2748186, 1);
+    }
 
-        // not OK when we only allow a small number of visited nodes:
+    /**
+     * This test is to check that an exception occurs if maxVisitedNodes is exceeded.
+     */
+    @Test
+    public void testMaxVisitedNodesExceeded() {
         AlgorithmOptions opts = AlgorithmOptions.start(algoOptions).maxVisitedNodes(1).build();
-        mapMatching = new MapMatching(hopper, opts);
+        MapMatching mapMatching = new MapMatching(hopper, opts);
+        List<GPXEntry> inputGPXEntries = createRandomGPXEntries(
+                new GHPoint(51.23, 12.18),
+                new GHPoint(51.45, 12.59));
         try {
-            mr = mapMatching.doWork(inputGPXEntries);
-            fail("Expected sequence to be broken due to maxVisitedNodes being too small");
+            mapMatching.doWork(inputGPXEntries);
+            fail("Expected sequence to be broken due to maxVisitedNodes being exceeded");
         } catch (RuntimeException e) {
-            assertTrue(e.getMessage().startsWith("Sequence is broken for submitted track"));
+            assertTrue(e.getMessage().startsWith(
+                    "couldn't compute transition probabilities as routing failed due to too small"
+                            + " maxVisitedNodes"));
         }
     }
 
+    /**
+     * This test is to check that the track is broken into two sequences when an internal point
+     * has no candidates:
+     */
+    @Test
+    @Ignore
+    public void testSequenceBreaksWhenNoCandidates() {
+        fail("not yet implemented");
+    }
+
+    /**
+     * This test is to check that the track is broken into two sequences when there are no possible
+     * routes between two timesteps
+     */
+    @Test
+    @Ignore
+    public void testSequenceBreaksWithUnconnectedSteps() {
+        fail("not yet implemented");
+    }
+    
     /**
      * This test is to check what happens when two GPX entries are on one edge
      * which is longer than 'separatedSearchDistance' - which is always 66m. GPX

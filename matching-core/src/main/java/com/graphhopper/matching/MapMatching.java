@@ -166,6 +166,8 @@ public class MapMatching {
         // Compute all candidates first.
         // TODO: Generate candidates on-the-fly within computeViterbiSequence() if this does not
         // degrade performance.
+        // @kodonnell: it's not currently possible as that'd mean calling queryGraph.lookup
+        //             multiple times, which isn't supported. So, remove TODO?
         final List<QueryResult> allCandidates = new ArrayList<>();
         List<TimeStep<GPXExtension, GPXEntry, Path>> timeSteps = createTimeSteps(gpxList,
                 edgeFilter, allCandidates);
@@ -182,11 +184,11 @@ public class MapMatching {
         final QueryGraph queryGraph = new QueryGraph(routingGraph).setUseEdgeExplorerCache(true);
         queryGraph.lookup(allCandidates);
 
-        List<SequenceState<GPXExtension, GPXEntry, Path>> seq = computeViterbiSequence(timeSteps,
-                gpxList, queryGraph);
+        List<List<SequenceState<GPXExtension, GPXEntry, Path>>> sequences =
+                computeViterbiSequence(timeSteps, gpxList, queryGraph);
 
         final EdgeExplorer explorer = queryGraph.createEdgeExplorer(edgeFilter);
-        MatchResult matchResult = computeMatchResult(seq, gpxList, allCandidates, explorer);
+        MatchResult matchResult = computeMatchResult(sequences, gpxList, allCandidates, explorer);
 
         return matchResult;
     }
@@ -229,52 +231,68 @@ public class MapMatching {
         return timeSteps;
     }
 
-    private List<SequenceState<GPXExtension, GPXEntry, Path>> computeViterbiSequence(
+    /*
+     * Run the viterbi algorithm on our HMM model. Note that viterbi breaks can occur (e.g. if no
+     * candidates are found for a given timestep), and we handle these by return a list of complete
+     * sequences (each of which is unbroken). It is possible that a sequence contains only a single
+     * timestep.
+     * 
+     * Note: we only break sequences with 'physical' reasons (e.g. no candidates nearby) and not
+     * algorithmic ones (e.g. maxVisitedNodes exceeded) - the latter should throw errors.
+     */
+    private List<List<SequenceState<GPXExtension, GPXEntry, Path>>> computeViterbiSequence(
             List<TimeStep<GPXExtension, GPXEntry, Path>> timeSteps, List<GPXEntry> gpxList,
             final QueryGraph queryGraph) {
-        final HmmProbabilities probabilities
-                = new HmmProbabilities(measurementErrorSigma, transitionProbabilityBeta);
-        final ViterbiAlgorithm<GPXExtension, GPXEntry, Path> viterbi = new ViterbiAlgorithm<>();
-
-        int timeStepCounter = 0;
+        final HmmProbabilities probabilities = new HmmProbabilities(measurementErrorSigma,
+                transitionProbabilityBeta);
+        ViterbiAlgorithm<GPXExtension, GPXEntry, Path> viterbi = null;
+        final List<List<SequenceState<GPXExtension, GPXEntry, Path>>> sequences =
+                new ArrayList<List<SequenceState<GPXExtension, GPXEntry, Path>>>();
         TimeStep<GPXExtension, GPXEntry, Path> prevTimeStep = null;
         for (TimeStep<GPXExtension, GPXEntry, Path> timeStep : timeSteps) {
+
+            // always calculate emission probabilities regardless of place in sequence:
             computeEmissionProbabilities(timeStep, probabilities);
 
             if (prevTimeStep == null) {
+                // first step, so create new viterbi:
+                viterbi = new ViterbiAlgorithm<>();
                 viterbi.startWithInitialObservation(timeStep.observation, timeStep.candidates,
                         timeStep.emissionLogProbabilities);
+                assert !viterbi.isBroken(); // TODO: is this a no-op?
             } else {
+                // add this step to current sequence:
                 computeTransitionProbabilities(prevTimeStep, timeStep, probabilities, queryGraph);
                 viterbi.nextStep(timeStep.observation, timeStep.candidates,
                         timeStep.emissionLogProbabilities, timeStep.transitionLogProbabilities,
                         timeStep.roadPaths);
-            }
-            if (viterbi.isBroken()) {
-                String likelyReasonStr = "";
-                if (prevTimeStep != null) {
-                    GPXEntry prevGPXE = prevTimeStep.observation;
-                    GPXEntry gpxe = timeStep.observation;
-                    double dist = distanceCalc.calcDist(prevGPXE.lat, prevGPXE.lon,
-                            gpxe.lat, gpxe.lon);
-                    if (dist > 2000) {
-                        likelyReasonStr = "Too long distance to previous measurement? "
-                                + Math.round(dist) + "m, ";
-                    }
+                // if broken, then close off this sequence and create a new one. Note that we rely
+                // on the fact that if the viterbi breaks the most recent step does not get added
+                // i.e. 'computeMostLikelySequence' returns the most likely sequence without this
+                // (breaking) step added. Hence we can use it to start the next one:
+                // TODO: check the above is true
+                if (viterbi.isBroken()) {
+                    sequences.add(viterbi.computeMostLikelySequence());
+                    viterbi = new ViterbiAlgorithm<>();
+                    viterbi.startWithInitialObservation(timeStep.observation, timeStep.candidates,
+                            timeStep.emissionLogProbabilities);
+                    assert !viterbi.isBroken(); // TODO: is this a no-op?
                 }
-
-                throw new RuntimeException("Sequence is broken for submitted track at time step "
-                        + timeStepCounter + " (" + gpxList.size() + " points). " + likelyReasonStr
-                        + "observation:" + timeStep.observation + ", "
-                        + timeStep.candidates.size() + " candidates: " + getSnappedCandidates(timeStep.candidates)
-                        + ". If a match is expected consider increasing max_visited_nodes.");
             }
-
-            timeStepCounter++;
             prevTimeStep = timeStep;
         }
 
-        return viterbi.computeMostLikelySequence();
+        // add the final sequence:
+        sequences.add(viterbi.computeMostLikelySequence());
+
+        // check sequence lengths:
+        int sequenceSizeSum = 0;
+        for (List<SequenceState<GPXExtension, GPXEntry, Path>> sequence : sequences) {
+            sequenceSizeSum += sequence.size();
+        }
+        assert sequenceSizeSum == timeSteps.size();
+        
+        return sequences;
     }
 
     private void computeEmissionProbabilities(TimeStep<GPXExtension, GPXEntry, Path> timeStep,
@@ -301,7 +319,6 @@ public class MapMatching {
         for (GPXExtension from : prevTimeStep.candidates) {
             for (GPXExtension to : timeStep.candidates) {
                 RoutingAlgorithm algo = algoFactory.createAlgo(queryGraph, algoOptions);
-                // System.out.println("algo " + algo.getName());
                 final Path path = algo.calcPath(from.getQueryResult().getClosestNode(),
                         to.getQueryResult().getClosestNode());
                 if (path.isFound()) {
@@ -309,62 +326,85 @@ public class MapMatching {
                     final double transitionLogProbability = probabilities
                             .transitionLogProbability(path.getDistance(), linearDistance, timeDiff);
                     timeStep.addTransitionLogProbability(from, to, transitionLogProbability);
+                } else {
+                    // TODO: can we remove maxVisitedNodes completely and just set to infinity?
+                    if (algo.getVisitedNodes() > algoOptions.getMaxVisitedNodes()) {
+                        throw new RuntimeException(
+                                "couldn't compute transition probabilities as routing failed due to too small maxVisitedNodes ("
+                                        + algoOptions.getMaxVisitedNodes() + ")");
+                    }
+                    // TODO: can we somewhere record that this route failed? Currently all viterbi
+                    // knows is that there's no transition possible, but not why. This is useful
+                    // for e.g. explaining why a sequence broke.
                 }
             }
         }
     }
 
-    private MatchResult computeMatchResult(List<SequenceState<GPXExtension, GPXEntry, Path>> seq,
-                                           List<GPXEntry> gpxList, List<QueryResult> allCandidates,
-                                           EdgeExplorer explorer) {
+    private MatchResult computeMatchResult(
+            List<List<SequenceState<GPXExtension, GPXEntry, Path>>> sequences,
+            List<GPXEntry> gpxList, List<QueryResult> allCandidates, EdgeExplorer explorer) {
         // every virtual edge maps to its real edge where the orientation is already correct!
         // TODO use traversal key instead of string!
         final Map<String, EdgeIteratorState> virtualEdgesMap = new HashMap<>();
         for (QueryResult candidate : allCandidates) {
             fillVirtualEdges(virtualEdgesMap, explorer, candidate);
         }
-
-        MatchResult matchResult = computeMatchedEdges(seq, virtualEdgesMap);
+        // TODO: sequences may be only single timesteps, or disconnected. So we need to support:
+        //  - fake edges e.g. 'got from X to Y' but we don't know how ...
+        //  - single points e.g. 'was at X from t0 to t1'
+        MatchResult matchResult = computeMatchedEdges(sequences, virtualEdgesMap);
         computeGpxStats(gpxList, matchResult);
 
         return matchResult;
     }
 
-    private MatchResult computeMatchedEdges(List<SequenceState<GPXExtension, GPXEntry, Path>> seq,
-                                            Map<String, EdgeIteratorState> virtualEdgesMap) {
-        List<EdgeMatch> edgeMatches = new ArrayList<>();
+    private MatchResult computeMatchedEdges(
+            List<List<SequenceState<GPXExtension, GPXEntry, Path>>> sequences,
+            Map<String, EdgeIteratorState> virtualEdgesMap) {
+        // TODO: remove gpx extensions and just add time at start/end of edge.
         double distance = 0.0;
         long time = 0;
-        EdgeIteratorState currentEdge = null;
+        List<EdgeMatch> edgeMatches = new ArrayList<>();
         List<GPXExtension> gpxExtensions = new ArrayList<>();
-        GPXExtension queryResult = seq.get(0).state;
-        gpxExtensions.add(queryResult);
-        for (int j = 1; j < seq.size(); j++) {
-            queryResult = seq.get(j).state;
-            Path path = seq.get(j).transitionDescriptor;
-            distance += path.getDistance();
-            time += path.getTime();
-            for (EdgeIteratorState edgeIteratorState : path.calcEdges()) {
-                EdgeIteratorState directedRealEdge = resolveToRealEdge(virtualEdgesMap,
-                        edgeIteratorState);
-                if (directedRealEdge == null) {
-                    throw new RuntimeException("Did not find real edge for "
-                            + edgeIteratorState.getEdge());
-                }
-                if (currentEdge == null || !equalEdges(directedRealEdge, currentEdge)) {
-                    if (currentEdge != null) {
-                        EdgeMatch edgeMatch = new EdgeMatch(currentEdge, gpxExtensions);
-                        edgeMatches.add(edgeMatch);
-                        gpxExtensions = new ArrayList<>();
-                    }
-                    currentEdge = directedRealEdge;
-                }
-            }
+        EdgeIteratorState currentEdge = null;
+        for (List<SequenceState<GPXExtension, GPXEntry, Path>> sequence : sequences) {
+            GPXExtension queryResult = sequence.get(0).state;
             gpxExtensions.add(queryResult);
+            for (int j = 1; j < sequence.size(); j++) {
+                queryResult = sequence.get(j).state;
+                Path path = sequence.get(j).transitionDescriptor;
+                distance += path.getDistance();
+                time += path.getTime();
+                for (EdgeIteratorState edgeIteratorState : path.calcEdges()) {
+                    EdgeIteratorState directedRealEdge =
+                            resolveToRealEdge(virtualEdgesMap, edgeIteratorState);
+                    if (directedRealEdge == null) {
+                        throw new RuntimeException(
+                                "Did not find real edge for " + edgeIteratorState.getEdge());
+                    }
+                    if (currentEdge == null || !equalEdges(directedRealEdge, currentEdge)) {
+                        if (currentEdge != null) {
+                            EdgeMatch edgeMatch = new EdgeMatch(currentEdge, gpxExtensions);
+                            edgeMatches.add(edgeMatch);
+                            gpxExtensions = new ArrayList<>();
+                        }
+                        currentEdge = directedRealEdge;
+                    }
+                }
+                gpxExtensions.add(queryResult);
+            }
         }
+        
+        // we should have some edge matches:
         if (edgeMatches.isEmpty()) {
+            String sequenceSizes = "";
+            for (List<SequenceState<GPXExtension, GPXEntry, Path>> sequence : sequences) {
+                sequenceSizes += sequence.size() + ",";
+            }
             throw new IllegalStateException(
-                    "No edge matches found for path. Too short? Sequence size " + seq.size());
+                    "No edge matches found for path. Only single-size sequences? Sequence sizes: "
+                            + sequenceSizes.substring(0, sequenceSizes.length() - 1));
         }
         EdgeMatch lastEdgeMatch = edgeMatches.get(edgeMatches.size() - 1);
         if (!gpxExtensions.isEmpty() && !equalEdges(currentEdge, lastEdgeMatch.getEdgeState())) {
