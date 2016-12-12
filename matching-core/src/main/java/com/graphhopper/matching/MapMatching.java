@@ -245,41 +245,50 @@ public class MapMatching {
             final QueryGraph queryGraph) {
         final HmmProbabilities probabilities = new HmmProbabilities(measurementErrorSigma,
                 transitionProbabilityBeta);
-        ViterbiAlgorithm<GPXExtension, GPXEntry, Path> viterbi = null;
+        ViterbiAlgorithm<GPXExtension, GPXEntry, Path> viterbi = new ViterbiAlgorithm<>();
         final List<List<SequenceState<GPXExtension, GPXEntry, Path>>> sequences =
                 new ArrayList<List<SequenceState<GPXExtension, GPXEntry, Path>>>();
-        TimeStep<GPXExtension, GPXEntry, Path> prevTimeStep = null;
+        TimeStep<GPXExtension, GPXEntry, Path> seqPrevTimeStep = null;
         for (TimeStep<GPXExtension, GPXEntry, Path> timeStep : timeSteps) {
 
+            // if sequence is broken, then close it off and create a new viterbi:
+            if (viterbi.isBroken()) {
+                sequences.add(viterbi.computeMostLikelySequence());
+                seqPrevTimeStep = null;
+                viterbi = new ViterbiAlgorithm<>();
+            }
+            
             // always calculate emission probabilities regardless of place in sequence:
             computeEmissionProbabilities(timeStep, probabilities);
 
-            if (prevTimeStep == null) {
-                // first step, so create new viterbi:
-                viterbi = new ViterbiAlgorithm<>();
+            if (seqPrevTimeStep == null) {
+                // first step of a sequence, so initialise viterbi:
                 viterbi.startWithInitialObservation(timeStep.observation, timeStep.candidates,
                         timeStep.emissionLogProbabilities);
-                assert !viterbi.isBroken(); // TODO: is this a no-op?
+                // it is possible viterbi is immediately broken here (e.g. no candidates) - this
+                // will be caught by the first test in this loop.
             } else {
                 // add this step to current sequence:
-                computeTransitionProbabilities(prevTimeStep, timeStep, probabilities, queryGraph);
+                computeTransitionProbabilities(seqPrevTimeStep, timeStep, probabilities, queryGraph);
                 viterbi.nextStep(timeStep.observation, timeStep.candidates,
                         timeStep.emissionLogProbabilities, timeStep.transitionLogProbabilities,
                         timeStep.roadPaths);
-                // if broken, then close off this sequence and create a new one. Note that we rely
-                // on the fact that if the viterbi breaks the most recent step does not get added
-                // i.e. 'computeMostLikelySequence' returns the most likely sequence without this
-                // (breaking) step added. Hence we can use it to start the next one:
+                // if broken, then close off this sequence and create a new one starting with this
+                // timestep. Note that we rely on the fact that if the viterbi breaks the most
+                // recent step does not get added i.e. 'computeMostLikelySequence' returns the most
+                // likely sequence without this (breaking) step added. Hence we can use it to start
+                // the next one:
                 // TODO: check the above is true
                 if (viterbi.isBroken()) {
                     sequences.add(viterbi.computeMostLikelySequence());
                     viterbi = new ViterbiAlgorithm<>();
                     viterbi.startWithInitialObservation(timeStep.observation, timeStep.candidates,
                             timeStep.emissionLogProbabilities);
-                    assert !viterbi.isBroken(); // TODO: is this a no-op?
+                    // as above, it is possible viterbi is immediately broken here (e.g. no
+                    // candidates) - this will be caught by the first test in this loop.
                 }
             }
-            prevTimeStep = timeStep;
+            seqPrevTimeStep = timeStep;
         }
 
         // add the final sequence:
