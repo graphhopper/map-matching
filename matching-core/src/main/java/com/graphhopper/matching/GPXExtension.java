@@ -17,6 +17,9 @@
  */
 package com.graphhopper.matching;
 
+import java.util.List;
+
+import com.graphhopper.routing.VirtualEdgeIteratorState;
 import com.graphhopper.storage.index.QueryResult;
 import com.graphhopper.util.GPXEntry;
 
@@ -27,19 +30,28 @@ import com.graphhopper.util.GPXEntry;
 public class GPXExtension {
     final GPXEntry entry;
     final QueryResult queryResult;
-    final int gpxListIndex;
+    private boolean directed;
+    public DirectedVirtualEdgeQuadruple virtualEdgeQuadruple;
 
-    public GPXExtension(GPXEntry entry, QueryResult queryResult, int gpxListIndex) {
+    public GPXExtension(GPXEntry entry, QueryResult queryResult) {
         this.entry = entry;
         this.queryResult = queryResult;
-        this.gpxListIndex = gpxListIndex;
+        this.directed = false;
+    }
+    
+    public GPXExtension(GPXEntry entry, QueryResult queryResult, DirectedVirtualEdgeQuadruple virtualEdgeQuadruple) {
+        this(entry, queryResult);
+        this.virtualEdgeQuadruple = virtualEdgeQuadruple;
+        this.directed = true;
     }
 
+    public boolean isDirected() {
+        return directed;
+    }
+        
     @Override
     public String toString() {
-        return "entry:" + entry
-                + ", query distance:" + queryResult.getQueryDistance()
-                + ", gpxListIndex:" + gpxListIndex;
+        return "entry:" + entry + ", query distance:" + queryResult.getQueryDistance();
     }
 
     public QueryResult getQueryResult() {
