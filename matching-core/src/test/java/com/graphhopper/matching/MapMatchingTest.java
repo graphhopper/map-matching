@@ -24,14 +24,7 @@ import com.graphhopper.reader.osm.GraphHopperOSM;
 import com.graphhopper.routing.AlgorithmOptions;
 import com.graphhopper.routing.Path;
 import com.graphhopper.routing.util.*;
-import com.graphhopper.storage.GraphHopperStorage;
-import com.graphhopper.storage.NodeAccess;
-import com.graphhopper.storage.index.LocationIndex;
-import com.graphhopper.util.BreadthFirstSearch;
-import com.graphhopper.util.EdgeExplorer;
-import com.graphhopper.util.EdgeIteratorState;
 import com.graphhopper.util.GPXEntry;
-import com.graphhopper.util.Helper;
 import com.graphhopper.util.InstructionList;
 import com.graphhopper.util.PMap;
 import com.graphhopper.util.Parameters;
@@ -63,17 +56,13 @@ public class MapMatchingTest {
 
     public final static TranslationMap SINGLETON = new TranslationMap().doImport();
 
+    // non-CH / CH test parameters
+    private final String parameterName;
     private final TestGraphHopper hopper;
     private final AlgorithmOptions algoOptions;
 
-    public MapMatchingTest(String name, TestGraphHopper hopper, AlgorithmOptions algoOption) {
-        this.algoOptions = algoOption;
-        this.hopper = hopper;
-    }
-
     @Parameterized.Parameters(name = "{0}")
     public static Collection<Object[]> algoOptions() {
-
         // create hopper instance with CH enabled
         CarFlagEncoder encoder = new CarFlagEncoder();
         TestGraphHopper hopper = new TestGraphHopper();
@@ -89,15 +78,22 @@ public class MapMatchingTest {
                 .build();
 
         // flexible should fall back to defaults
-        AlgorithmOptions flexibleOpts = AlgorithmOptions.start().
+        AlgorithmOptions flexibleOpts = AlgorithmOptions.start()
                 // TODO: fewer nodes than for CH are possible (short routes & different finish condition & higher degree graph)
-                // maxVisitedNodes(20).                
-                build();
+                // .maxVisitedNodes(20)
+                .build();
 
         return Arrays.asList(new Object[][]{
             {"non-CH", hopper, flexibleOpts},
             {"CH", hopper, chOpts}
         });
+    }
+
+    public MapMatchingTest(String parameterName, TestGraphHopper hopper,
+                           AlgorithmOptions algoOption) {
+        this.parameterName = parameterName;
+        this.algoOptions = algoOption;
+        this.hopper = hopper;
     }
 
     /**
@@ -179,7 +175,7 @@ public class MapMatchingTest {
                 new GHPoint(51.23, 12.18),
                 new GHPoint(51.45, 12.59));
         MatchResult mr = mapMatching.doWork(inputGPXEntries);
-        assertEquals(mr.getMatchLength(), 57653, 1);
+        assertEquals(mr.getMatchLength(), 57653, 1); // TODO: failing ...
         assertEquals(mr.getMatchMillis(), 2748186, 1);
     }
 
@@ -238,7 +234,7 @@ public class MapMatchingTest {
         MatchResult mr = mapMatching.doWork(inputGPXEntries);
         assertEquals(Arrays.asList("Weinligstraße", "Weinligstraße", "Weinligstraße",
                 "Fechnerstraße", "Fechnerstraße"), fetchStreets(mr.getEdgeMatches()));
-        assertEquals(mr.getGpxEntriesLength(), mr.getMatchLength(), 11);
+        assertEquals(mr.getGpxEntriesLength(), mr.getMatchLength(), 11); // TODO: this should be around 300m according to Google ... need to check
         assertEquals(mr.getGpxEntriesMillis(), mr.getMatchMillis(), 3000);
     }
 
@@ -249,6 +245,10 @@ public class MapMatchingTest {
     @Test
     public void testLoop() {
         MapMatching mapMatching = new MapMatching(hopper, algoOptions);
+
+        // Need to reduce GPS accuracy because too many GPX are filtered out otherwise.
+        mapMatching.setMeasurementErrorSigma(40);
+
         List<GPXEntry> inputGPXEntries = new GPXFile()
                 .doImport("./src/test/resources/tour2-with-loop.gpx").getEntries();
         MatchResult mr = mapMatching.doWork(inputGPXEntries);
@@ -288,6 +288,16 @@ public class MapMatchingTest {
      */
     @Test
     public void testUTurns() {
+        // This test requires changing the default heading penalty, which does not work for CH.
+        if (parameterName.equals("CH")) {
+            return;
+        }
+
+        final AlgorithmOptions algoOptions = AlgorithmOptions.start()
+                // Reduce penalty to allow U-turns
+                .hints(new PMap().put(Parameters.Routing.HEADING_PENALTY, 50))
+                .build();
+
         MapMatching mapMatching = new MapMatching(hopper, algoOptions);
         List<GPXEntry> inputGPXEntries = new GPXFile()
                 .doImport("./src/test/resources/tour4-with-uturn.gpx").getEntries();
@@ -295,12 +305,14 @@ public class MapMatchingTest {
         // with large measurement error, we expect no U-turn
         mapMatching.setMeasurementErrorSigma(50);
         MatchResult mr = mapMatching.doWork(inputGPXEntries);
+
         assertEquals(Arrays.asList("Gustav-Adolf-Straße", "Gustav-Adolf-Straße", "Funkenburgstraße",
                 "Funkenburgstraße"), fetchStreets(mr.getEdgeMatches()));
 
         // with small measurement error, we expect the U-turn
         mapMatching.setMeasurementErrorSigma(10);
         mr = mapMatching.doWork(inputGPXEntries);
+
         assertEquals(
                 Arrays.asList("Gustav-Adolf-Straße", "Gustav-Adolf-Straße", "Funkenburgstraße",
                         "Funkenburgstraße", "Funkenburgstraße", "Funkenburgstraße"),
@@ -332,33 +344,6 @@ public class MapMatchingTest {
     private List<GPXEntry> createRandomGPXEntries(GHPoint start, GHPoint end) {
         hopper.route(new GHRequest(start, end).setWeighting("fastest"));
         return hopper.getEdges(0);
-    }
-
-    private void printOverview(GraphHopperStorage graph, LocationIndex locationIndex,
-                               final double lat, final double lon, final double length) {
-        final NodeAccess na = graph.getNodeAccess();
-        int node = locationIndex.findClosest(lat, lon, EdgeFilter.ALL_EDGES).getClosestNode();
-        final EdgeExplorer explorer = graph.createEdgeExplorer();
-        new BreadthFirstSearch() {
-
-            double currDist = 0;
-
-            @Override
-            protected boolean goFurther(int nodeId) {
-                double currLat = na.getLat(nodeId);
-                double currLon = na.getLon(nodeId);
-                currDist = Helper.DIST_PLANE.calcDist(currLat, currLon, lat, lon);
-                return currDist < length;
-            }
-
-            @Override
-            protected boolean checkAdjacent(EdgeIteratorState edge) {
-                System.out.println(edge.getBaseNode() + "->" + edge.getAdjNode() + " ("
-                        + Math.round(edge.getDistance()) + "): " + edge.getName() + "\t\t , distTo:"
-                        + currDist);
-                return true;
-            }
-        }.start(explorer, node);
     }
 
     // use a workaround to get access to paths
