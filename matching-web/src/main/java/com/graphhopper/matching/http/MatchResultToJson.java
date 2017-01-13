@@ -20,7 +20,7 @@ package com.graphhopper.matching.http;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import com.graphhopper.matching.EdgeMatch;
+import com.graphhopper.matching.MatchEdge;
 import com.graphhopper.matching.GPXExtension;
 import com.graphhopper.matching.MatchResult;
 import com.graphhopper.util.PointList;
@@ -56,7 +56,7 @@ public class MatchResultToJson {
             JSONObject link = new JSONObject();
             JSONObject geometry = new JSONObject();
 
-            EdgeMatch edgeMatch = result.getEdgeMatches().get(emIndex);
+            MatchEdge edgeMatch = result.getEdgeMatches().get(emIndex);
             PointList pointList = edgeMatch.getEdgeState().fetchWayGeometry(emIndex == 0 ? 3 : 2);
 
             if (pointList.size() < 2) {

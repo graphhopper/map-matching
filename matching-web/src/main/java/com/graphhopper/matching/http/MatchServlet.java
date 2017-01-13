@@ -180,7 +180,7 @@ public class MatchServlet extends GraphHopperServlet {
                     // encode edges as traversal keys which includes orientation
                     // decode simply by multiplying with 0.5
                     List<Integer> traversalKeylist = new ArrayList<Integer>();
-                    for (EdgeMatch em : matchRsp.getEdgeMatches()) {
+                    for (MatchEdge em : matchRsp.getEdgeMatches()) {
                         EdgeIteratorState edge = em.getEdgeState();
                         traversalKeylist.add(GHUtility.createEdgeKey(edge.getBaseNode(), edge.getAdjNode(), edge.getEdge(), false));
                     }

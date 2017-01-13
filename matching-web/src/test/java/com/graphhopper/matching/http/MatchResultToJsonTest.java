@@ -25,7 +25,7 @@ import org.json.JSONObject;
 import org.junit.Assert;
 import org.junit.Test;
 
-import com.graphhopper.matching.EdgeMatch;
+import com.graphhopper.matching.MatchEdge;
 import com.graphhopper.matching.GPXExtension;
 import com.graphhopper.matching.MatchResult;
 import com.graphhopper.routing.VirtualEdgeIteratorState;
@@ -37,9 +37,9 @@ import com.graphhopper.util.shapes.GHPoint3D;
 
 public class MatchResultToJsonTest {
 
-    protected List<EdgeMatch> getEdgeMatch() {
-        List<EdgeMatch> list = new ArrayList<EdgeMatch>();
-        list.add(new EdgeMatch(getEdgeInterator(), getGpxExtension()));
+    protected List<MatchEdge> getEdgeMatch() {
+        List<MatchEdge> list = new ArrayList<MatchEdge>();
+        list.add(new MatchEdge(getEdgeInterator(), getGpxExtension()));
         return list;
     }
 

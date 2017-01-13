@@ -17,85 +17,127 @@
  */
 package com.graphhopper.matching;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+
+import com.graphhopper.matching.util.TimeStep;
+import com.graphhopper.util.DistanceCalc;
+import com.graphhopper.util.EdgeIteratorState;
+import com.graphhopper.util.GPXEntry;
 
 /**
  *
  * @author Peter Karich
+ * @author kodonnell
  */
 public class MatchResult {
 
-    private List<EdgeMatch> edgeMatches;
-    private double matchLength;
-    private long matchMillis;
-    private double gpxEntriesLength;
-    private long gpxEntriesMillis;
-
-    public MatchResult(List<EdgeMatch> edgeMatches) {
-        setEdgeMatches(edgeMatches);
+    private final List<MatchSequence> sequences;
+    /**
+     * The length (meters) of the total *matched* path, excluding sequence breaks.
+     */
+    private double matchDistance;
+    /**
+     * The time (milliseconds) to travel the *matched* path that makes up this sequence, assuming
+     * one travels at the speed limit and there are no turn costs between sequence connections.
+     */
+    private long matchDuration;
+    /**
+     * The cumulative sequential great-line distance between all of the GPX entries, in meters,
+     * optionally skipping the distances between sequence breaks.
+     */
+    private double gpxEntriesDistance;
+    /**
+     * The time (milliseconds) between the last and first GPX entry, optionally skipping the
+     * time between sequence breaks.
+     */
+    private long gpxEntriesDuration;
+    /**
+     * A mapping of all the original GPX entries to their final matched position (i.e. which 
+     * sequence, etc.)
+     */
+    private List<GPXMapping> originalGPXMapping = null;
+    /**
+     * A list of all of the match edges (just a union of those for each sequence).
+     */
+    private List<MatchEdge> matchEdges = null;
+    
+    public MatchResult(List<MatchSequence> sequences) {
+        this.sequences = sequences;
     }
-
-    public void setEdgeMatches(List<EdgeMatch> edgeMatches) {
-        if (edgeMatches == null) {
-            throw new IllegalStateException("edgeMatches cannot be null");
+    
+    public void computeEdgeMatches(Map<String, EdgeIteratorState> virtualEdgesMap, int nodeCount, List<GPXEntry> originalGPXEntries) {
+        originalGPXMapping = new ArrayList<GPXMapping>();
+        matchEdges = new ArrayList<MatchEdge>();
+        matchDistance = 0;
+        matchDuration = 0;
+        for (MatchSequence sequence: sequences) {
+            sequence.computeMatchEdges(virtualEdgesMap, nodeCount);
+            matchDistance += sequence.getMatchDistance();
+            matchDuration += sequence.getMatchDuration();
+            int nMatchEdgesThusFar = matchEdges.size();
+            for (MatchEntry me: sequence.matchEntries) {
+                int matchEdgesIdx = nMatchEdgesThusFar + me.sequenceMatchEdgeIdx;
+                originalGPXMapping.add(new GPXMapping(me.gpxEntry, me, matchEdgesIdx, false, -1));
+                int neighborIdx = 0;
+                for (GPXEntry gpx: me.neighboringGpxEntries) {
+                    originalGPXMapping.add(new GPXMapping(gpx, me, matchEdgesIdx, true, neighborIdx++));
+                }
+            }
+            matchEdges.addAll(sequence.matchEdges);
         }
-
-        this.edgeMatches = edgeMatches;
+        
+        // check 'em
+        int n = originalGPXEntries.size();
+        assert originalGPXEntries.size() == n;
+        for (int gpxIdx = 0; gpxIdx < n; gpxIdx++) {
+            assert originalGPXEntries.get(gpxIdx).equals(originalGPXMapping.get(gpxIdx).originalGPXEntry);
+        }
+    }
+    
+    public void computeGPXStats(DistanceCalc distCalc, boolean skipSequenceBreaks) {
+        gpxEntriesDistance = 0;
+        gpxEntriesDuration = 0;
+        GPXEntry lastGPXEntry = null;
+        for (MatchSequence sequence: sequences) {
+            sequence.computeGPXStats(distCalc);
+            gpxEntriesDistance += sequence.getMatchDistance();
+            gpxEntriesDuration += sequence.getMatchDuration();
+            if (!skipSequenceBreaks) {
+                if(lastGPXEntry != null) {
+                    GPXEntry firstGPXEntry = sequence.timeSteps.get(0).observation;
+                    gpxEntriesDistance += distCalc.calcDist(lastGPXEntry.lat, lastGPXEntry.lon, firstGPXEntry.lat, firstGPXEntry.lon);
+                    gpxEntriesDuration += (firstGPXEntry.getTime() - lastGPXEntry.getTime());
+                }
+                TimeStep lastTimeStep = sequence.timeSteps.get(sequence.timeSteps.size() - 1);
+                List<GPXEntry> neighbors = lastTimeStep.getNeighboringEntries();
+                lastGPXEntry = neighbors.isEmpty() ? lastTimeStep.observation : neighbors.get(neighbors.size() - 1);
+            }
+        }
     }
 
-    public void setGPXEntriesLength(double gpxEntriesLength) {
-        this.gpxEntriesLength = gpxEntriesLength;
+    public List<MatchEdge> getEdgeMatches() {
+        return matchEdges;
+    }
+    
+    public List<GPXMapping> getOriginalGPXMapping() {
+        return originalGPXMapping;
     }
 
-    public void setGPXEntriesMillis(long gpxEntriesMillis) {
-        this.gpxEntriesMillis = gpxEntriesMillis;
-    }
-
-    public void setMatchLength(double matchLength) {
-        this.matchLength = matchLength;
-    }
-
-    public void setMatchMillis(long matchMillis) {
-        this.matchMillis = matchMillis;
-    }
-
-    /**
-     * All possible assigned edges.
-     */
-    public List<EdgeMatch> getEdgeMatches() {
-        return edgeMatches;
-    }
-
-    /**
-     * Length of the original GPX track in meters
-     */
     public double getGpxEntriesLength() {
-        return gpxEntriesLength;
+        return gpxEntriesDistance;
     }
-
-    /**
-     * Length of the original GPX track in milliseconds
-     */
+    
     public long getGpxEntriesMillis() {
-        return gpxEntriesMillis;
+        return gpxEntriesDuration;
     }
 
-    /**
-     * Length of the map-matched road in meters
-     */
     public double getMatchLength() {
-        return matchLength;
+        return matchDistance;
     }
 
-    /**
-     * Length of the map-matched road in milliseconds
-     */
     public long getMatchMillis() {
-        return matchMillis;
-    }
-
-    @Override
-    public String toString() {
-        return "length:" + matchLength + ", seconds:" + matchMillis / 1000f + ", matches:" + edgeMatches.toString();
+        return matchDuration;
     }
 }
