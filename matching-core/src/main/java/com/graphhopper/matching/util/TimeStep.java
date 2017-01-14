@@ -29,7 +29,8 @@ import com.carrotsearch.hppc.procedures.IntProcedure;
 import com.graphhopper.coll.GHBitSet;
 import com.graphhopper.coll.GHIntHashSet;
 import com.graphhopper.coll.GHTBitSet;
-import com.graphhopper.matching.GPXExtension;
+import com.graphhopper.matching.Candidate;
+import com.graphhopper.matching.MatchEntry;
 import com.graphhopper.routing.Path;
 import com.graphhopper.routing.QueryGraph;
 import com.graphhopper.routing.VirtualEdgeIteratorState;
@@ -42,7 +43,6 @@ import com.graphhopper.util.DistanceCalcEarth;
 import com.graphhopper.util.EdgeExplorer;
 import com.graphhopper.util.EdgeIterator;
 import com.graphhopper.util.EdgeIteratorState;
-import com.graphhopper.util.GPXEntry;
 
 /**
  * Contains everything the hmm-lib needs to process a new time step including emisson and
@@ -54,12 +54,11 @@ import com.graphhopper.util.GPXEntry;
 public class TimeStep {
 
     private static DistanceCalc distCalc = new DistanceCalcEarth();
-    public final GPXEntry observation;
-    public Collection<GPXExtension> candidates = null;
-    public final Map<GPXExtension, Double> emissionLogProbabilities = new HashMap<>();
-    public final Map<Transition<GPXExtension>, Double> transitionLogProbabilities = new HashMap<>();
-    public final Map<Transition<GPXExtension>, Path> roadPaths = new HashMap<>();
-    private List<GPXEntry> gpxEntryNeighbors = new ArrayList<GPXEntry>();
+    public final MatchEntry matchEntry;
+    public Collection<Candidate> candidates = null;
+    public final Map<Candidate, Double> emissionLogProbabilities = new HashMap<>();
+    public final Map<Transition<Candidate>, Double> transitionLogProbabilities = new HashMap<>();
+    public final Map<Transition<Candidate>, Path> roadPaths = new HashMap<>();
 
     private static final Comparator<QueryResult> QR_COMPARATOR = new Comparator<QueryResult>() {
         @Override
@@ -68,13 +67,10 @@ public class TimeStep {
         }
     };
 
-    public TimeStep(GPXEntry observation) {
-        if (observation == null) {
-            throw new NullPointerException("observation must not be null.");
-        }
-        this.observation = observation;
+    public TimeStep(MatchEntry matchEntry) {
+        assert matchEntry != null;
+        this.matchEntry = matchEntry;
     }
-
 
     /*
      * Find all results which are within the GPS signal accuracy.
@@ -93,7 +89,8 @@ public class TimeStep {
 
         for (int iteration = 0; iteration < 2; iteration++) {
             // should we use the return value of earlyFinish?
-            index.findNetworkEntries(observation.lat, observation.lon, set, iteration);
+            index.findNetworkEntries(matchEntry.gpxEntry.lat, matchEntry.gpxEntry.lon,
+                    set, iteration);
 
             final GHBitSet exploredNodes = new GHTBitSet(new GHIntHashSet(set));
             final EdgeExplorer explorer = graph.createEdgeExplorer(edgeFilter);
@@ -102,7 +99,8 @@ public class TimeStep {
 
                 @Override
                 public void apply(int node) {
-                    index.new XFirstSearchCheck(observation.lat, observation.lon, exploredNodes, edgeFilter) {
+                    index.new XFirstSearchCheck(matchEntry.gpxEntry.lat,
+                            matchEntry.gpxEntry.lon, exploredNodes, edgeFilter) {
                         @Override
                         protected double getQueryDistance() {
                             // do not skip search if distance is 0 or near zero (equalNormedDelta)
@@ -110,15 +108,19 @@ public class TimeStep {
                         }
 
                         @Override
-                        protected boolean check(int node, double normedDist, int wayIndex, EdgeIteratorState edge, QueryResult.Position pos) {
+                        protected boolean check(int node, double normedDist, int wayIndex,
+                                EdgeIteratorState edge, QueryResult.Position pos) {
                             if (normedDist < returnAllResultsWithin
                                     || candidateLocations.isEmpty()
                                     || candidateLocations.get(0).getQueryDistance() > normedDist) {
 
                                 int index = -1;
-                                for (int qrIndex = 0; qrIndex < candidateLocations.size(); qrIndex++) {
+                                for (int qrIndex = 0; qrIndex < candidateLocations.size();
+                                        qrIndex++) {
                                     QueryResult qr = candidateLocations.get(qrIndex);
-                                    // overwrite older queryResults which are potentially more far away than returnAllResultsWithin
+                                    // overwrite older queryResults which are
+                                    // potentially more far away than
+                                    // returnAllResultsWithin
                                     if (qr.getQueryDistance() > returnAllResultsWithin) {
                                         index = qrIndex;
                                         break;
@@ -137,7 +139,8 @@ public class TimeStep {
                                     }
                                 }
 
-                                QueryResult qr = new QueryResult(observation.lat, observation.lon);
+                                QueryResult qr = new QueryResult(matchEntry.gpxEntry.lat,
+                                        matchEntry.gpxEntry.lon);
                                 qr.setQueryDistance(normedDist);
                                 qr.setClosestNode(node);
                                 qr.setClosestEdge(edge.detach(false));
@@ -176,7 +179,7 @@ public class TimeStep {
      * Create the (directed) candidates based on the provided candidate locations. 
      */
     public void createCandidates(List<QueryResult> candidateLocations, QueryGraph queryGraph) {
-        candidates = new ArrayList<GPXExtension>();
+        candidates = new ArrayList<Candidate>();
         for (QueryResult qr: candidateLocations) {
             int closestNode = qr.getClosestNode();
             if (queryGraph.isVirtualNode(closestNode)) {
@@ -221,19 +224,19 @@ public class TimeStep {
                     vqr.setSnappedPosition(qr.getSnappedPosition());
                     vqr.setClosestEdge(qr.getClosestEdge());
                     vqr.calcSnappedPoint(distCalc);
-                    GPXExtension candidate = new GPXExtension(observation, vqr, incomingVirtualEdge,
+                    Candidate candidate = new Candidate(matchEntry.gpxEntry, vqr, incomingVirtualEdge,
                             outgoingVirtualEdge);
                     candidates.add(candidate);
                 }
             } else {
                 // Create an undirected candidate for the real node.
-                GPXExtension candidate = new GPXExtension(observation, qr);
+                Candidate candidate = new Candidate(matchEntry.gpxEntry, qr);
                 candidates.add(candidate);
             }
         }
     }
 
-    public void addEmissionLogProbability(GPXExtension candidate, double emissionLogProbability) {
+    public void addEmissionLogProbability(Candidate candidate, double emissionLogProbability) {
         if (emissionLogProbabilities.containsKey(candidate)) {
             throw new IllegalArgumentException("Candidate has already been added.");
         }
@@ -243,9 +246,9 @@ public class TimeStep {
     /**
      * Does not need to be called for non-existent transitions.
      */
-    public void addTransitionLogProbability(GPXExtension fromPosition, GPXExtension toPosition,
+    public void addTransitionLogProbability(Candidate fromPosition, Candidate toPosition,
                                             double transitionLogProbability) {
-        final Transition<GPXExtension> transition = new Transition<>(fromPosition, toPosition);
+        final Transition<Candidate> transition = new Transition<>(fromPosition, toPosition);
         if (transitionLogProbabilities.containsKey(transition)) {
             throw new IllegalArgumentException("Transition has already been added.");
         }
@@ -255,23 +258,11 @@ public class TimeStep {
     /**
      * Does not need to be called for non-existent transitions.
      */
-    public void addRoadPath(GPXExtension fromPosition, GPXExtension toPosition, Path roadPath) {
-        final Transition<GPXExtension> transition = new Transition<>(fromPosition, toPosition);
+    public void addRoadPath(Candidate fromPosition, Candidate toPosition, Path roadPath) {
+        final Transition<Candidate> transition = new Transition<>(fromPosition, toPosition);
         if (roadPaths.containsKey(transition)) {
             throw new IllegalArgumentException("Transition has already been added.");
         }
         roadPaths.put(transition, roadPath);
     }
-    
-    /**
-     * Adds a neighboring GPX entry
-     */
-    public void addNeighboringGPXEntry(GPXEntry entry) {
-        gpxEntryNeighbors.add(entry);
-    }
-    
-    public List<GPXEntry> getNeighboringEntries() {
-        return gpxEntryNeighbors;
-    }
-
 }

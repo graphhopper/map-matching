@@ -26,7 +26,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import com.graphhopper.matching.MatchEdge;
-import com.graphhopper.matching.GPXExtension;
+import com.graphhopper.matching.Candidate;
 import com.graphhopper.matching.MatchResult;
 import com.graphhopper.routing.VirtualEdgeIteratorState;
 import com.graphhopper.storage.index.QueryResult;
@@ -43,8 +43,8 @@ public class MatchResultToJsonTest {
         return list;
     }
 
-    private List<GPXExtension> getGpxExtension() {
-        List<GPXExtension> list = new ArrayList<GPXExtension>();
+    private List<Candidate> getGpxExtension() {
+        List<Candidate> list = new ArrayList<Candidate>();
         QueryResult queryResult1 = new QueryResult(-3.4445, -38.9990) {
             @Override
             public GHPoint3D getSnappedPoint() {
@@ -58,8 +58,8 @@ public class MatchResultToJsonTest {
             }
         };
 
-        list.add(new GPXExtension(new GPXEntry(-3.4446, -38.9996, 100000), queryResult1));
-        list.add(new GPXExtension(new GPXEntry(-3.4448, -38.9999, 100001), queryResult2));
+        list.add(new Candidate(new GPXEntry(-3.4446, -38.9996, 100000), queryResult1));
+        list.add(new Candidate(new GPXEntry(-3.4448, -38.9999, 100001), queryResult2));
         return list;
     }
 

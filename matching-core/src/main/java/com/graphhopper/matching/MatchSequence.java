@@ -24,9 +24,7 @@ import java.util.Map;
 import com.bmw.hmm.SequenceState;
 import com.graphhopper.matching.util.TimeStep;
 import com.graphhopper.routing.Path;
-import com.graphhopper.util.DistanceCalc;
 import com.graphhopper.util.EdgeIteratorState;
-import com.graphhopper.util.GPXEntry;
 
 /**
  * Used to represent a continuous map matching sequence.
@@ -59,12 +57,7 @@ public class MatchSequence {
     /**
      * The matched sequence, as returned from viterbi.computeMostLikelySequence().
      */
-    private final List<SequenceState<GPXExtension, GPXEntry, Path>> matchedSequence;
-    /**
-     * A list of timeSteps (corresponding to matchedSequence). We only use this to get the
-     * neighbouring (i.e. clustered) GPX entries.
-     */
-    public final List<TimeStep> timeSteps;
+    private final List<SequenceState<Candidate, MatchEntry, Path>> matchedSequence;
     /**
      * Time (inclusive, in milliseconds) when first began on this sequence. -1 if not set.
      * TODO: is in inclusive?
@@ -79,10 +72,6 @@ public class MatchSequence {
      * List of edges that make up this sequence. Null until computeMatchEdges is called.
      */
     public List<MatchEdge> matchEdges;
-    /**
-     * List of match entries that are in this sequence. Null until computeMatchEdges is called.
-     */
-    public List<MatchEntry> matchEntries = null;
     /**
      * The length (meters) of the *matched* path that makes up this sequence.
      */
@@ -101,49 +90,19 @@ public class MatchSequence {
      */
     private long gpxEntriesDuration;
 
-    public MatchSequence(List<SequenceState<GPXExtension, GPXEntry, Path>> matchedSequence,
+    public MatchSequence(List<SequenceState<Candidate, MatchEntry, Path>> matchedSequence,
             List<TimeStep> timeSteps,
             BreakReason lastTimeStepBreakReason, SequenceType type) {
         assert matchedSequence.size() >= 1;
         this.matchedSequence = matchedSequence;
         this.lastTimeStepBreakReason = lastTimeStepBreakReason;
         this.type = type;
-        this.timeSteps = timeSteps;
         // times - which assume sequence steps are ordered by time:
         // TODO: these may overlap other sequences at the moment
-        this.fromTime = matchedSequence.get(0).observation.getTime();
-        this.toTime = matchedSequence.get(matchedSequence.size() - 1).observation.getTime();
+        this.fromTime = matchedSequence.get(0).observation.gpxEntry.getTime();
+        this.toTime = matchedSequence.get(matchedSequence.size() - 1).observation.gpxEntry.getTime();
         
         assert timeSteps.size() == matchedSequence.size();
-    }
-    
-    public void computeGPXStats(DistanceCalc distCalc) {
-        GPXEntry lastGPX = null;
-        GPXEntry gpx;
-        gpxEntriesDistance = 0;
-        long minTime = Long.MAX_VALUE;
-        long maxTime = Long.MIN_VALUE;
-        for (TimeStep timeStep: timeSteps) {
-            gpx = timeStep.observation;
-            long t = gpx.getTime();
-            minTime = t < minTime ? t : minTime;
-            maxTime = t > maxTime ? t : maxTime;
-            if (lastGPX != null) {
-                gpxEntriesDistance += distCalc.calcDist(lastGPX.lat, lastGPX.lon, gpx.lat, gpx.lon);
-            }
-            lastGPX = gpx;
-            // neighbors
-            for (GPXEntry neighboringGPX: timeStep.getNeighboringEntries()) {
-                neighboringGPX = timeStep.observation;
-                t = neighboringGPX.getTime();
-                minTime = t < minTime ? t : minTime;
-                maxTime = t > maxTime ? t : maxTime;
-                gpxEntriesDistance += distCalc.calcDist(lastGPX.lat, lastGPX.lon, neighboringGPX.lat, neighboringGPX.lon);
-                lastGPX = neighboringGPX;
-            }
-        }
-        assert minTime < Long.MAX_VALUE && maxTime > Long.MIN_VALUE;
-        gpxEntriesDuration = maxTime - minTime;
     }
     
     /**
@@ -157,7 +116,6 @@ public class MatchSequence {
         // TODO: remove gpx extensions and just add time at start/end of edge.
         matchDistance = 0.0;
         matchDuration = 0;
-        matchEntries = new ArrayList<MatchEntry>();
         matchEdges = new ArrayList<MatchEdge>();
 
         if (type != SequenceType.SEQUENCE)
@@ -169,11 +127,11 @@ public class MatchSequence {
         long realFromTime = fromTime;
         long lastEdgeEndTime = fromTime;
         for (int j = 1; j < matchedSequence.size(); j++) {
-            SequenceState<GPXExtension, GPXEntry, Path> matchStep = matchedSequence.get(j);
+            SequenceState<Candidate, MatchEntry, Path> matchStep = matchedSequence.get(j);
             Path path = matchedSequence.get(j).transitionDescriptor;
 
             double pathDistance = path.getDistance();
-            long realEndTime = matchStep.observation.getTime();
+            long realEndTime = matchStep.observation.gpxEntry.getTime();
             double realTimePerPathMeter = (double) (realEndTime - realFromTime) / (double) pathDistance;
             
             matchDuration += path.getTime();
@@ -201,12 +159,12 @@ public class MatchSequence {
             // add first match entry:
             if (j == 1) {
                 EdgeIteratorState firstDirectedRealEdge = resolveToRealEdge(virtualEdgesMap, edges.get(0), nodeCount);
-                matchEntries.add(new MatchEntry(0, matchedSequence.get(0), timeSteps.get(0), firstDirectedRealEdge, 0, 0));
+                matchStep.observation.saveMatchingState(0, 0, firstDirectedRealEdge, 0, matchedSequence.get(0).observation.getSnappedPoint());
             }
             
             // add this matchEntry:
             // TODO: handle edgeIteratorState == null or directedRealEdge == null
-            matchEntries.add(new MatchEntry(j, matchStep, timeSteps.get(j), directedRealEdge, matchEdges.size() - 1, edgeIteratorState.getDistance()));
+            matchStep.observation.saveMatchingState(j, matchEdges.size() - 1, directedRealEdge, edgeIteratorState.getDistance(), matchStep.observation.getSnappedPoint());
             
             // TODO: figure out overlaps ...
             realFromTime = realEndTime;

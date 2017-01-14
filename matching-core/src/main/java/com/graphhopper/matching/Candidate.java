@@ -38,7 +38,7 @@ import com.graphhopper.util.GPXEntry;
  * @author kodonnell
  * @author Stefan Holder
  */
-public class GPXExtension {
+public class Candidate {
     private final GPXEntry entry;
     private final QueryResult queryResult;
     private final boolean isDirected;
@@ -48,7 +48,7 @@ public class GPXExtension {
     /**
      * Creates an undirected candidate for a real node.
      */
-    public GPXExtension(GPXEntry entry, QueryResult queryResult) {
+    public Candidate(GPXEntry entry, QueryResult queryResult) {
         this.entry = entry;
         this.queryResult = queryResult;
         this.isDirected = false;
@@ -59,7 +59,7 @@ public class GPXExtension {
     /**
      * Creates a directed candidate for a virtual node.
      */
-    public GPXExtension(GPXEntry entry, QueryResult queryResult,
+    public Candidate(GPXEntry entry, QueryResult queryResult,
                         VirtualEdgeIteratorState incomingVirtualEdge,
                         VirtualEdgeIteratorState outgoingVirtualEdge) {
         this.entry = entry;

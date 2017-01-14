@@ -21,7 +21,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import com.graphhopper.matching.MatchEdge;
-import com.graphhopper.matching.GPXExtension;
+import com.graphhopper.matching.Candidate;
 import com.graphhopper.matching.MatchResult;
 import com.graphhopper.util.PointList;
 
@@ -73,7 +73,7 @@ public class MatchResultToJson {
             JSONArray wpts = new JSONArray();
             link.put("wpts", wpts);
 
-            for (GPXExtension extension : edgeMatch.getGpxExtensions()) {
+            for (Candidate extension : edgeMatch.getGpxExtensions()) {
                 JSONObject wpt = new JSONObject();
                 wpt.put("x", extension.getQueryResult().getSnappedPoint().lon);
                 wpt.put("y", extension.getQueryResult().getSnappedPoint().lat);

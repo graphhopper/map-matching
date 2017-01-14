@@ -21,7 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import com.graphhopper.matching.util.TimeStep;
+import com.graphhopper.matching.MatchEntry.MatchState;
 import com.graphhopper.util.DistanceCalc;
 import com.graphhopper.util.EdgeIteratorState;
 import com.graphhopper.util.GPXEntry;
@@ -33,6 +33,7 @@ import com.graphhopper.util.GPXEntry;
  */
 public class MatchResult {
 
+    private final List<MatchEntry> matchEntries;
     private final List<MatchSequence> sequences;
     /**
      * The length (meters) of the total *matched* path, excluding sequence breaks.
@@ -54,21 +55,16 @@ public class MatchResult {
      */
     private long gpxEntriesDuration;
     /**
-     * A mapping of all the original GPX entries to their final matched position (i.e. which 
-     * sequence, etc.)
-     */
-    private List<GPXMapping> originalGPXMapping = null;
-    /**
      * A list of all of the match edges (just a union of those for each sequence).
      */
     private List<MatchEdge> matchEdges = null;
     
-    public MatchResult(List<MatchSequence> sequences) {
+    public MatchResult(List<MatchEntry> matchEntries, List<MatchSequence> sequences) {
+        this.matchEntries = matchEntries;
         this.sequences = sequences;
     }
     
-    public void computeEdgeMatches(Map<String, EdgeIteratorState> virtualEdgesMap, int nodeCount, List<GPXEntry> originalGPXEntries) {
-        originalGPXMapping = new ArrayList<GPXMapping>();
+    public void computeEdgeMatches(Map<String, EdgeIteratorState> virtualEdgesMap, int nodeCount) {
         matchEdges = new ArrayList<MatchEdge>();
         matchDistance = 0;
         matchDuration = 0;
@@ -76,53 +72,27 @@ public class MatchResult {
             sequence.computeMatchEdges(virtualEdgesMap, nodeCount);
             matchDistance += sequence.getMatchDistance();
             matchDuration += sequence.getMatchDuration();
-            int nMatchEdgesThusFar = matchEdges.size();
-            for (MatchEntry me: sequence.matchEntries) {
-                int matchEdgesIdx = nMatchEdgesThusFar + me.sequenceMatchEdgeIdx;
-                originalGPXMapping.add(new GPXMapping(me.gpxEntry, me, matchEdgesIdx, false, -1));
-                int neighborIdx = 0;
-                for (GPXEntry gpx: me.neighboringGpxEntries) {
-                    originalGPXMapping.add(new GPXMapping(gpx, me, matchEdgesIdx, true, neighborIdx++));
-                }
-            }
             matchEdges.addAll(sequence.matchEdges);
-        }
-        
-        // check 'em
-        int n = originalGPXEntries.size();
-        assert originalGPXEntries.size() == n;
-        for (int gpxIdx = 0; gpxIdx < n; gpxIdx++) {
-            assert originalGPXEntries.get(gpxIdx).equals(originalGPXMapping.get(gpxIdx).originalGPXEntry);
         }
     }
     
-    public void computeGPXStats(DistanceCalc distCalc, boolean skipSequenceBreaks) {
+    public void computeGPXStats(DistanceCalc distCalc) {
         gpxEntriesDistance = 0;
-        gpxEntriesDuration = 0;
         GPXEntry lastGPXEntry = null;
-        for (MatchSequence sequence: sequences) {
-            sequence.computeGPXStats(distCalc);
-            gpxEntriesDistance += sequence.getMatchDistance();
-            gpxEntriesDuration += sequence.getMatchDuration();
-            if (!skipSequenceBreaks) {
-                if(lastGPXEntry != null) {
-                    GPXEntry firstGPXEntry = sequence.timeSteps.get(0).observation;
-                    gpxEntriesDistance += distCalc.calcDist(lastGPXEntry.lat, lastGPXEntry.lon, firstGPXEntry.lat, firstGPXEntry.lon);
-                    gpxEntriesDuration += (firstGPXEntry.getTime() - lastGPXEntry.getTime());
-                }
-                TimeStep lastTimeStep = sequence.timeSteps.get(sequence.timeSteps.size() - 1);
-                List<GPXEntry> neighbors = lastTimeStep.getNeighboringEntries();
-                lastGPXEntry = neighbors.isEmpty() ? lastTimeStep.observation : neighbors.get(neighbors.size() - 1);
+        for (MatchEntry matchEntry: matchEntries) {
+            if (matchEntry.getMatchState() != MatchState.NOT_USED_FOR_MATCHING) {
+                gpxEntriesDistance += distCalc.calcDist(lastGPXEntry.lat, lastGPXEntry.lon,
+                        matchEntry.gpxEntry.lat, matchEntry.gpxEntry.lon);
+                lastGPXEntry = matchEntry.gpxEntry;
             }
         }
+        // NOTE: assumes events temporally ordered!
+        gpxEntriesDuration = matchEntries.get(matchEntries.size() - 1).gpxEntry.getTime()
+                - matchEntries.get(0).gpxEntry.getTime();
     }
 
     public List<MatchEdge> getEdgeMatches() {
         return matchEdges;
-    }
-    
-    public List<GPXMapping> getOriginalGPXMapping() {
-        return originalGPXMapping;
     }
 
     public double getGpxEntriesLength() {
