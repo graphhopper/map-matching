@@ -46,6 +46,7 @@ public class MatchEntry {
             EdgeIteratorState directedRealEdge, double distanceAlongRealEdge,
             GHPoint3D snappedPoint) {
         assert !locked;
+        this.matchState = MatchState.MATCHED;
         this.sequenceIdx = sequenceIdx;
         this.sequenceMatchEdgeIdx = sequenceMatchEdgeIdx;
         this.directedRealEdge = directedRealEdge;

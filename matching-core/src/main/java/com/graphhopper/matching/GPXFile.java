@@ -68,7 +68,7 @@ public class GPXFile {
         long time = 0;
         for (int emIndex = 0; emIndex < mr.getEdgeMatches().size(); emIndex++) {
             MatchEdge em = mr.getEdgeMatches().get(emIndex);
-            PointList pl = em.getEdgeState().fetchWayGeometry(emIndex == 0 ? 3 : 2);
+            PointList pl = em.edge.fetchWayGeometry(emIndex == 0 ? 3 : 2);
             if (pl.is3D()) {
                 includeElevation = true;
             }

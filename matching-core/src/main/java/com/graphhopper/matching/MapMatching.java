@@ -347,6 +347,7 @@ public class MapMatching {
         if (seqPrevTimeStep != null) {
             final List<SequenceState<Candidate, MatchEntry, Path>> viterbiSequence = viterbi.computeMostLikelySequence();
             sequences.add(new MatchSequence(viterbiSequence, currentSequenceTimeSteps, BreakReason.LAST_GPX_ENTRY, viterbiSequence.size() == 1 ? SequenceType.STATIONARY : SequenceType.SEQUENCE));
+            totalSequencesSize += viterbiSequence.size();
         }
         
         // check sequence lengths:

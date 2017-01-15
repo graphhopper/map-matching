@@ -110,8 +110,8 @@ public class MapMatchingTest {
         // make sure no virtual edges are returned
         int edgeCount = hopper.getGraphHopperStorage().getAllEdges().getMaxId();
         for (MatchEdge em : mr.getEdgeMatches()) {
-            assertTrue("result contains virtual edges:" + em.getEdgeState().toString(),
-                    em.getEdgeState().getEdge() < edgeCount);
+            assertTrue("result contains virtual edges:" + em.edge.toString(),
+                    em.edge.getEdge() < edgeCount);
         }
 
         // create street names
@@ -175,8 +175,8 @@ public class MapMatchingTest {
                 new GHPoint(51.23, 12.18),
                 new GHPoint(51.45, 12.59));
         MatchResult mr = mapMatching.doWork(inputGPXEntries);
-        assertEquals(mr.getMatchLength(), 57653, 1); // TODO: failing ...
-        assertEquals(mr.getMatchMillis(), 2748186, 1);
+        assertEquals(57650, mr.getMatchLength(), 1);
+        assertEquals(2748000, mr.getMatchMillis(), 500);
     }
 
     /**
@@ -232,9 +232,10 @@ public class MapMatchingTest {
         MapMatching mapMatching = new MapMatching(hopper, algoOptions);
         mapMatching.setMeasurementErrorSigma(20);
         MatchResult mr = mapMatching.doWork(inputGPXEntries);
-        assertEquals(Arrays.asList("Weinligstraße", "Weinligstraße", "Weinligstraße",
+        assertEquals(Arrays.asList("Marbachstraße", "Weinligstraße", "Weinligstraße",
                 "Fechnerstraße", "Fechnerstraße"), fetchStreets(mr.getEdgeMatches()));
-        assertEquals(mr.getGpxEntriesLength(), mr.getMatchLength(), 11); // TODO: this should be around 300m according to Google ... need to check
+        assertEquals(390, mr.getGpxEntriesLength(), 10);
+        assertEquals(390, mr.getMatchLength(), 10);
         assertEquals(mr.getGpxEntriesMillis(), mr.getMatchMillis(), 3000);
     }
 
@@ -257,7 +258,8 @@ public class MapMatchingTest {
                         "Leibnizstraße", "Hinrichsenstraße", "Hinrichsenstraße",
                         "Tschaikowskistraße", "Tschaikowskistraße"),
                 fetchStreets(mr.getEdgeMatches()));
-        assertEquals(mr.getGpxEntriesLength(), mr.getMatchLength(), 5);
+        assertEquals(812, mr.getGpxEntriesLength(), 1);
+        assertEquals(812, mr.getMatchLength(), 1);
         // TODO why is there such a big difference for millis?
         assertEquals(mr.getGpxEntriesMillis(), mr.getMatchMillis(), 6000);
     }
@@ -324,15 +326,14 @@ public class MapMatchingTest {
         int prevNode = -1;
         List<String> errors = new ArrayList<String>();
         for (MatchEdge em : emList) {
-            String str = em.getEdgeState().getName();// + ":" + em.getEdgeState().getBaseNode() +
-            // "->" + em.getEdgeState().getAdjNode();
+            String str = em.edge.getName();
             list.add(str);
             if (prevNode >= 0) {
-                if (em.getEdgeState().getBaseNode() != prevNode) {
+                if (em.edge.getBaseNode() != prevNode) {
                     errors.add(str);
                 }
             }
-            prevNode = em.getEdgeState().getAdjNode();
+            prevNode = em.edge.getAdjNode();
         }
 
         if (!errors.isEmpty()) {

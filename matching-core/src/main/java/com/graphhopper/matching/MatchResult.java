@@ -79,12 +79,17 @@ public class MatchResult {
     public void computeGPXStats(DistanceCalc distCalc) {
         gpxEntriesDistance = 0;
         GPXEntry lastGPXEntry = null;
+        boolean first = true;
         for (MatchEntry matchEntry: matchEntries) {
-            if (matchEntry.getMatchState() != MatchState.NOT_USED_FOR_MATCHING) {
+            if (first) {
+                first = false;
+            } else {
+                // NOTE: could allow user to calculate GPX stats using only those GPX points
+                // used for matching, i.e. matchEntry.getMatchState() == MatchState.MATCHED
                 gpxEntriesDistance += distCalc.calcDist(lastGPXEntry.lat, lastGPXEntry.lon,
                         matchEntry.gpxEntry.lat, matchEntry.gpxEntry.lon);
-                lastGPXEntry = matchEntry.gpxEntry;
             }
+            lastGPXEntry = matchEntry.gpxEntry;
         }
         // NOTE: assumes events temporally ordered!
         gpxEntriesDuration = matchEntries.get(matchEntries.size() - 1).gpxEntry.getTime()

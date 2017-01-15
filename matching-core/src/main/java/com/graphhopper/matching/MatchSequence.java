@@ -148,18 +148,16 @@ public class MatchSequence {
                 long edgeEndTime = edgeIdx == (nEdges - 1) ? realEndTime : (long) (realFromTime + edgeIteratorState.getDistance() * realTimePerPathMeter);           
                 directedRealEdge = resolveToRealEdge(virtualEdgesMap, edgeIteratorState, nodeCount);
                 if (lastEdgeAdded == null || !equalEdges(directedRealEdge, lastEdgeAdded)) {
-                    if (lastEdgeAdded != null) {
-                        matchEdges.add(new MatchEdge(directedRealEdge, lastEdgeEndTime, edgeEndTime));
-                        lastEdgeEndTime = edgeEndTime;
-                        lastEdgeAdded = directedRealEdge;
-                    }
+                    matchEdges.add(new MatchEdge(directedRealEdge, lastEdgeEndTime, edgeEndTime));
+                    lastEdgeEndTime = edgeEndTime;
+                    lastEdgeAdded = directedRealEdge;
                 }
             }
             
             // add first match entry:
             if (j == 1) {
                 EdgeIteratorState firstDirectedRealEdge = resolveToRealEdge(virtualEdgesMap, edges.get(0), nodeCount);
-                matchStep.observation.saveMatchingState(0, 0, firstDirectedRealEdge, 0, matchedSequence.get(0).observation.getSnappedPoint());
+                matchedSequence.get(0).observation.saveMatchingState(0, 0, firstDirectedRealEdge, 0, matchedSequence.get(0).observation.getSnappedPoint());
             }
             
             // add this matchEntry:
