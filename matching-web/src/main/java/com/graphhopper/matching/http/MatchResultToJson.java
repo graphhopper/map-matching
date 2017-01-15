@@ -21,12 +21,16 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import com.graphhopper.matching.MatchEdge;
+import com.graphhopper.matching.MatchEntry;
+import com.bmw.hmm.SequenceState;
 import com.graphhopper.matching.Candidate;
 import com.graphhopper.matching.MatchResult;
+import com.graphhopper.matching.MatchSequence;
+import com.graphhopper.routing.Path;
 import com.graphhopper.util.PointList;
 
 /**
- * Transform MatchResult in Json Object with fallow structure:
+ * Transform MatchResult in JSON Object with following structure:
  * <pre>
  * { "diary": {
  *   "routes": [
@@ -52,32 +56,38 @@ public class MatchResultToJson {
         JSONArray entries = new JSONArray();
         JSONObject route = new JSONObject();
         JSONArray links = new JSONArray();
-        for (int emIndex = 0; emIndex < result.getEdgeMatches().size(); emIndex++) {
-            JSONObject link = new JSONObject();
-            JSONObject geometry = new JSONObject();
+        for (MatchSequence matchSequence: result.sequences) {
 
-            MatchEdge edgeMatch = result.getEdgeMatches().get(emIndex);
-            PointList pointList = edgeMatch.getEdgeState().fetchWayGeometry(emIndex == 0 ? 3 : 2);
+    		JSONObject link = new JSONObject();
+    		
+        	// add sequence geometry
+        	int emIndex = 0;
+        	for (MatchEdge matchEdge: matchSequence.matchEdges) {
+                JSONObject geometry = new JSONObject();
+                PointList pointList = matchEdge.edge.fetchWayGeometry(emIndex == 0 ? 3 : 2);
 
-            if (pointList.size() < 2) {
-                geometry.put("coordinates", pointList.toGeoJson().get(0));
-                geometry.put("type", "Point");
-            } else {
-                geometry.put("coordinates", pointList.toGeoJson());
-                geometry.put("type", "LineString");
-            }
+                if (pointList.size() < 2) {
+                    geometry.put("coordinates", pointList.toGeoJson().get(0));
+                    geometry.put("type", "Point");
+                } else {
+                    geometry.put("coordinates", pointList.toGeoJson());
+                    geometry.put("type", "LineString");
+                }
 
-            link.put("id", edgeMatch.getEdgeState().getEdge());
-            link.put("geometry", geometry.toString());
+                link.put("id", matchEdge.edge.getEdge());
+                link.put("geometry", geometry.toString());
 
+                emIndex++;
+        	}
+        	
+        	// add waypoints:
             JSONArray wpts = new JSONArray();
             link.put("wpts", wpts);
-
-            for (Candidate extension : edgeMatch.getGpxExtensions()) {
+            for (SequenceState<Candidate, MatchEntry, Path> step : matchSequence.matchedSequence) {
                 JSONObject wpt = new JSONObject();
-                wpt.put("x", extension.getQueryResult().getSnappedPoint().lon);
-                wpt.put("y", extension.getQueryResult().getSnappedPoint().lat);
-                wpt.put("timestamp", extension.getEntry().getTime());
+                wpt.put("x", step.state.getQueryResult().getSnappedPoint().lon);
+                wpt.put("y", step.state.getQueryResult().getSnappedPoint().lat);
+                wpt.put("timestamp", step.observation.gpxEntry.getTime());
                 wpts.put(wpt);
             }
 

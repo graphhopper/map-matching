@@ -124,13 +124,13 @@ public class MatchServlet extends GraphHopperServlet {
                 matchRsp = matching.doWork(gpxFile.getEntries());
 
                 // fill GHResponse for identical structure            
-                Path path = matching.calcPath(matchRsp);
-                Translation tr = trMap.getWithFallBack(locale);
-                DouglasPeucker peucker = new DouglasPeucker().setMaxDistance(wayPointMaxDistance);
-                PathMerger pathMerger = new PathMerger().
-                        setDouglasPeucker(peucker).
-                        setSimplifyResponse(wayPointMaxDistance > 0);
-                pathMerger.doWork(matchGHRsp, Collections.singletonList(path), tr);
+//                Path path = matching.calcPath(matchRsp);
+//                Translation tr = trMap.getWithFallBack(locale);
+//                DouglasPeucker peucker = new DouglasPeucker().setMaxDistance(wayPointMaxDistance);
+//                PathMerger pathMerger = new PathMerger().
+//                        setDouglasPeucker(peucker).
+//                        setSimplifyResponse(wayPointMaxDistance > 0);
+//                pathMerger.doWork(matchGHRsp, Collections.singletonList(path), tr);
 
             } catch (Exception ex) {
                 matchGHRsp.addError(ex);
@@ -181,7 +181,7 @@ public class MatchServlet extends GraphHopperServlet {
                     // decode simply by multiplying with 0.5
                     List<Integer> traversalKeylist = new ArrayList<Integer>();
                     for (MatchEdge em : matchRsp.getEdgeMatches()) {
-                        EdgeIteratorState edge = em.getEdgeState();
+                        EdgeIteratorState edge = em.edge;
                         traversalKeylist.add(GHUtility.createEdgeKey(edge.getBaseNode(), edge.getAdjNode(), edge.getEdge(), false));
                     }
                     map.put("traversal_keys", traversalKeylist);

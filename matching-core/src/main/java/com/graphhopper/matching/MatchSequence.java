@@ -60,7 +60,7 @@ public class MatchSequence {
     /**
      * The matched sequence, as returned from viterbi.computeMostLikelySequence().
      */
-    private final List<SequenceState<Candidate, MatchEntry, Path>> matchedSequence;
+    public final List<SequenceState<Candidate, MatchEntry, Path>> matchedSequence;
     /**
      * Time (inclusive, in milliseconds) when first began on this sequence. -1 if not set.
      * TODO: is in inclusive?
