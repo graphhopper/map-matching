@@ -21,7 +21,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import com.graphhopper.matching.MatchEntry.MatchState;
 import com.graphhopper.util.DistanceCalc;
 import com.graphhopper.util.EdgeIteratorState;
 import com.graphhopper.util.GPXEntry;

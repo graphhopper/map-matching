@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.bmw.hmm.SequenceState;
-import com.graphhopper.matching.util.TimeStep;
+import com.graphhopper.matching.util.ViterbiMatchEntry;
 import com.graphhopper.routing.Path;
 import com.graphhopper.util.EdgeIteratorState;
 
@@ -39,7 +39,7 @@ public class MatchSequence {
      *      - NO_CANDIDATES: there were no candidates for the *next* step
      *      - NO_POSSIBLE_TRANSITIONS: there were no possible transitions to the *next* step.
      */
-    public static enum BreakReason { UNKNOWN, LAST_GPX_ENTRY, NO_CANDIDATES, NO_POSSIBLE_TRANSITIONS };
+    public static enum ViterbiBreakReason { UNKNOWN, LAST_GPX_ENTRY, NO_CANDIDATES, NO_POSSIBLE_TRANSITIONS };
     /**
      * Sequence type descriptor:
      *      - STATIONARY: where there was only a single step in the sequence. 
@@ -49,7 +49,7 @@ public class MatchSequence {
     /**
      * The break reason for this sequence.
      */
-    public final BreakReason lastTimeStepBreakReason;
+    public final ViterbiBreakReason viterbiBreakReason;
     /**
      * The sequence type.
      */
@@ -91,18 +91,18 @@ public class MatchSequence {
     private long gpxEntriesDuration;
 
     public MatchSequence(List<SequenceState<Candidate, MatchEntry, Path>> matchedSequence,
-            List<TimeStep> timeSteps,
-            BreakReason lastTimeStepBreakReason, SequenceType type) {
+            List<ViterbiMatchEntry> viterbiMatchEntriess,
+            ViterbiBreakReason viterbiBreakReason, SequenceType type) {
         assert matchedSequence.size() >= 1;
         this.matchedSequence = matchedSequence;
-        this.lastTimeStepBreakReason = lastTimeStepBreakReason;
+        this.viterbiBreakReason = viterbiBreakReason;
         this.type = type;
         // times - which assume sequence steps are ordered by time:
         // TODO: these may overlap other sequences at the moment
         this.fromTime = matchedSequence.get(0).observation.gpxEntry.getTime();
         this.toTime = matchedSequence.get(matchedSequence.size() - 1).observation.gpxEntry.getTime();
         
-        assert timeSteps.size() == matchedSequence.size();
+        assert viterbiMatchEntriess.size() == matchedSequence.size();
     }
     
     /**

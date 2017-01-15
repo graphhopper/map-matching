@@ -45,13 +45,13 @@ import com.graphhopper.util.EdgeIterator;
 import com.graphhopper.util.EdgeIteratorState;
 
 /**
- * Contains everything the hmm-lib needs to process a new time step including emisson and
- * observation probabilities.
+ * This is a wrapper around an input MatchEntry, so as to work with the Viterbi algorithm (via 
+ * hmm-lib). For example, it stores the candidates, emission/transition probabilities, etc.
  * 
  * @author Stefan Holder
  * @author kodonnell
  */
-public class TimeStep {
+public class ViterbiMatchEntry {
 
     private static DistanceCalc distCalc = new DistanceCalcEarth();
     public final MatchEntry matchEntry;
@@ -67,7 +67,7 @@ public class TimeStep {
         }
     };
 
-    public TimeStep(MatchEntry matchEntry) {
+    public ViterbiMatchEntry(MatchEntry matchEntry) {
         assert matchEntry != null;
         this.matchEntry = matchEntry;
     }
