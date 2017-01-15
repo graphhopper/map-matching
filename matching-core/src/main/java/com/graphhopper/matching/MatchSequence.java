@@ -24,6 +24,9 @@ import java.util.Map;
 import com.bmw.hmm.SequenceState;
 import com.graphhopper.matching.util.ViterbiMatchEntry;
 import com.graphhopper.routing.Path;
+import com.graphhopper.routing.weighting.Weighting;
+import com.graphhopper.storage.Graph;
+import com.graphhopper.util.EdgeIterator;
 import com.graphhopper.util.EdgeIteratorState;
 
 /**
@@ -69,6 +72,10 @@ public class MatchSequence {
      */
     private long toTime = -1;
     /**
+     * Private variable to track whether or not the match edges have been computed.
+     */
+    public boolean computedMatchEdges = false;
+    /**
      * List of edges that make up this sequence. Null until computeMatchEdges is called.
      */
     public List<MatchEdge> matchEdges;
@@ -81,15 +88,7 @@ public class MatchSequence {
      * one travels at the speed limit and there are no turn costs between sequence connections.
      */
     private long matchDuration;
-    /**
-     * The cumulative sequential great-line distance between all of the GPX entries, in meters.
-     */
-    private double gpxEntriesDistance;
-    /**
-     * The time (milliseconds) between the last and first GPX entry.
-     */
-    private long gpxEntriesDuration;
-
+    
     public MatchSequence(List<SequenceState<Candidate, MatchEntry, Path>> matchedSequence,
             List<ViterbiMatchEntry> viterbiMatchEntriess,
             ViterbiBreakReason viterbiBreakReason, SequenceType type) {
@@ -171,6 +170,8 @@ public class MatchSequence {
         // we should have some edge matches:
 //        if (edgeMatches.isEmpty())
         
+        // we're done:
+        computedMatchEdges = true;
     }
 
     private boolean equalEdges(EdgeIteratorState edge1, EdgeIteratorState edge2) {
@@ -199,28 +200,61 @@ public class MatchSequence {
     private String virtualEdgesMapKey(EdgeIteratorState iter) {
         return iter.getBaseNode() + "-" + iter.getEdge() + "-" + iter.getAdjNode();
     }
+    
+    private static class MapMatchedPath extends Path {
 
+        public MapMatchedPath(Graph graph, Weighting weighting) {
+            super(graph, weighting);
+        }
+
+        @Override
+        public Path setFromNode(int from) {
+            return super.setFromNode(from);
+        }
+
+        @Override
+        public void processEdge(int edgeId, int adjNode, int prevEdgeId) {
+            super.processEdge(edgeId, adjNode, prevEdgeId);
+        }
+    }
+
+    private void checkEdgesComputed() {
+        if (!computedMatchEdges)
+            throw new RuntimeException("must call computeMatchEdges first");
+    }
+    
+    public Path calcPath(Graph graph, Weighting weighting) {
+        checkEdgesComputed();
+        MapMatchedPath p = new MapMatchedPath(graph, weighting);
+        if (!matchEdges.isEmpty()) {
+            int prevEdge = EdgeIterator.NO_EDGE;
+            p.setFromNode(matchEdges.get(0).edge.getBaseNode());
+            for (MatchEdge em : matchEdges) {
+                p.processEdge(em.edge.getEdge(), em.edge.getAdjNode(), prevEdge);
+                prevEdge = em.edge.getEdge();
+            }
+            p.setFound(true);
+            return p;
+        } else {
+            return p;
+        }
+    }
+    
     public long getFromTime() {
         return fromTime;
     }
-
+    
     public long getToTime() {
         return toTime;
     }
     
     public double getMatchDistance() {
+        checkEdgesComputed();
         return matchDistance;
     }
-
-    public long getMatchDuration() {
-        return matchDuration;
-    }
     
-    public double getGPXEntriesDistance() {
-        return gpxEntriesDistance;
-    }
-
-    public long getGPXEntriesDuration() {
-        return gpxEntriesDuration;
+    public long getMatchDuration() {
+        checkEdgesComputed();
+        return matchDuration;
     }
 }

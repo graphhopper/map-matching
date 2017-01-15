@@ -51,7 +51,7 @@ public class GPXFile {
     static final String DATE_FORMAT_Z_MS = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'";
     private final List<GPXEntry> entries;
     private boolean includeElevation = false;
-    private InstructionList instructions;
+    private List<InstructionList> instructions;
 
     public GPXFile() {
         entries = new ArrayList<GPXEntry>();
@@ -61,7 +61,7 @@ public class GPXFile {
         this.entries = entries;
     }
 
-    public GPXFile(MatchResult mr, InstructionList il) {
+    public GPXFile(MatchResult mr, List<InstructionList> il) {
         this.instructions = il;
         this.entries = new ArrayList<GPXEntry>(mr.getEdgeMatches().size());
         // TODO fetch time from GPX or from calculated route?
@@ -198,17 +198,20 @@ public class GPXFile {
         StringBuilder gpxOutput = new StringBuilder(header);
         gpxOutput.append("\n<trk><name>").append("GraphHopper MapMatching").append("</name>");
 
+        // TODO: is this correct? how do we know there's a 'gap' in the instructions i.e. multiple
+        // sequences? Do instructions only make sense for a single sequence?
         if (instructions != null && !instructions.isEmpty()) {
             gpxOutput.append("\n<rte>");
-            Instruction nextInstr = null;
-            for (Instruction currInstr : instructions) {
-                if (null != nextInstr) {
-                    instructions.createRteptBlock(gpxOutput, nextInstr, currInstr);
+            for (InstructionList instr: instructions) {
+                Instruction nextInstr = null;
+                for (Instruction currInstr : instr) {
+                    if (null != nextInstr) {
+                        instr.createRteptBlock(gpxOutput, nextInstr, currInstr);
+                    }
+                    nextInstr = currInstr;
                 }
-
-                nextInstr = currInstr;
+                instr.createRteptBlock(gpxOutput, nextInstr, null);
             }
-            instructions.createRteptBlock(gpxOutput, nextInstr, null);
             gpxOutput.append("\n</rte>");
         }
 

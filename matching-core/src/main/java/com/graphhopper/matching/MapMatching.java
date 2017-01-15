@@ -532,12 +532,12 @@ public class MapMatching {
         }
     }
 
-    public Path calcPath(MatchResult mr) {
+    public Path calcPath(MatchSequence matchSequence) {
         MapMatchedPath p = new MapMatchedPath(routingGraph, algoOptions.getWeighting());
-        if (!mr.getEdgeMatches().isEmpty()) {
+        if (!matchSequence.matchEdges.isEmpty()) {
             int prevEdge = EdgeIterator.NO_EDGE;
-            p.setFromNode(mr.getEdgeMatches().get(0).edge.getBaseNode());
-            for (MatchEdge em : mr.getEdgeMatches()) {
+            p.setFromNode(matchSequence.matchEdges.get(0).edge.getBaseNode());
+            for (MatchEdge em : matchSequence.matchEdges) {
                 p.processEdge(em.edge.getEdge(), em.edge.getAdjNode(), prevEdge);
                 prevEdge = em.edge.getEdge();
             }

@@ -32,8 +32,8 @@ import com.graphhopper.util.GPXEntry;
  */
 public class MatchResult {
 
-    private final List<MatchEntry> matchEntries;
-    private final List<MatchSequence> sequences;
+    public final List<MatchEntry> matchEntries;
+    public final List<MatchSequence> sequences;
     /**
      * The length (meters) of the total *matched* path, excluding sequence breaks.
      */
