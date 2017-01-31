@@ -62,12 +62,10 @@ public class MatchSequence {
     public final List<SequenceState<Candidate, MatchEntry, Path>> matchedSequence;
     /**
      * Time (inclusive, in milliseconds) when first began on this sequence. -1 if not set.
-     * TODO: is in inclusive?
      */
     private long fromTime = -1;
     /**
-     * Time (inclusive, in milliseconds) when last was on this sequence. -1 if not set.
-     * TODO: is in inclusive?
+     * Time (exclusive, in milliseconds) when last was on this sequence. -1 if not set.
      */
     private long toTime = -1;
     /**
@@ -89,6 +87,16 @@ public class MatchSequence {
     private long matchDuration;
     
     /**
+     * Create an UNKNOWN match sequence
+     */
+    public MatchSequence(long fromTime, long toTime) {
+        this.type = SequenceType.UNKNOWN;
+        this.matchedSequence = null;
+        this.viterbiBreakReason = null;
+        this.fromTime = fromTime;
+        this.toTime = toTime;
+    }
+    /**
      * Create a new MatchSequence.
      * 
      * @param matchedSequence
@@ -104,7 +112,6 @@ public class MatchSequence {
         this.viterbiBreakReason = viterbiBreakReason;
         this.type = type;
         // times - which assume sequence steps are ordered by time:
-        // TODO: these may overlap other sequences at the moment
         this.fromTime = matchedSequence.get(0).observation.gpxEntry.getTime();
         this.toTime = matchedSequence.get(matchedSequence.size() - 1).observation.gpxEntry.getTime();
         
@@ -119,26 +126,26 @@ public class MatchSequence {
      */
     public void computeMatchEdges(Map<String, EdgeIteratorState> virtualEdgesMap, int nodeCount) {
         
-        // TODO: remove gpx extensions and just add time at start/end of edge.
         matchDistance = 0.0;
         matchDuration = 0;
         matchEdges = new ArrayList<MatchEdge>();
 
+        // if it's a stationary/unknown sequence, there are no edges:
+        // TODO: should we add the single edge in the case of a stationary sequence?
         if (type != SequenceType.SEQUENCE)
             return;
-            // TODO
         
         // add the rest:
         EdgeIteratorState lastEdgeAdded = null;
         long realFromTime = fromTime;
-        long lastEdgeEndTime = fromTime;
+        long lastEdgeToTime = fromTime;
         for (int j = 1; j < matchedSequence.size(); j++) {
             SequenceState<Candidate, MatchEntry, Path> matchStep = matchedSequence.get(j);
             Path path = matchedSequence.get(j).transitionDescriptor;
 
             double pathDistance = path.getDistance();
-            long realEndTime = matchStep.observation.gpxEntry.getTime();
-            double realTimePerPathMeter = (double) (realEndTime - realFromTime) / (double) pathDistance;
+            long realToTime = matchStep.observation.gpxEntry.getTime();
+            double realTimePerPathMeter = (double) (realToTime - realFromTime) / (double) pathDistance;
             
             matchDuration += path.getTime();
             matchDistance += pathDistance;
@@ -151,30 +158,39 @@ public class MatchSequence {
             for (int edgeIdx = 0; edgeIdx < nEdges; edgeIdx++) {
                 edgeIteratorState = edges.get(edgeIdx);
                 // get time:
-                long edgeEndTime = edgeIdx == (nEdges - 1) ? realEndTime : (long) (realFromTime + edgeIteratorState.getDistance() * realTimePerPathMeter);           
+                long edgeToTime = edgeIdx == (nEdges - 1) ? realToTime
+                        : (long) (realFromTime
+                                + edgeIteratorState.getDistance() * realTimePerPathMeter);
                 directedRealEdge = resolveToRealEdge(virtualEdgesMap, edgeIteratorState, nodeCount);
                 if (lastEdgeAdded == null || !equalEdges(directedRealEdge, lastEdgeAdded)) {
-                    matchEdges.add(new MatchEdge(directedRealEdge, lastEdgeEndTime, edgeEndTime));
-                    lastEdgeEndTime = edgeEndTime;
+                    matchEdges.add(new MatchEdge(directedRealEdge, lastEdgeToTime, edgeToTime));
+                    lastEdgeToTime = edgeToTime;
                     lastEdgeAdded = directedRealEdge;
                 }
             }
-            
-            // add first match entry:
+
+            // TODO: will these every be triggered?
+            if (edgeIteratorState == null)
+                throw new IllegalStateException("haven't handled case edgeIteratorState == null");
+            if (directedRealEdge == null)
+                throw new IllegalStateException("haven't handled case directedRealEdge == null");
+
+            // save the matching information of the first match step in the sequence:
             if (j == 1) {
                 EdgeIteratorState firstDirectedRealEdge = resolveToRealEdge(virtualEdgesMap, edges.get(0), nodeCount);
                 matchedSequence.get(0).observation.saveMatchingState(0, 0, firstDirectedRealEdge, 0, matchedSequence.get(0).observation.getSnappedPoint());
             }
             
-            // add this matchEntry:
-            // TODO: handle edgeIteratorState == null or directedRealEdge == null
+            // save the matching information to this match step:
             matchStep.observation.saveMatchingState(j, matchEdges.size() - 1, directedRealEdge, edgeIteratorState.getDistance(), matchStep.observation.getSnappedPoint());
-            
-            // TODO: figure out overlaps ...
-            realFromTime = realEndTime;
+ 
+            // update fromTime for next loop to toTime
+            realFromTime = realToTime;
         }
         
-        // TODO: should we have some edge matches?
+        // check we do have some edge matches:
+        if (matchEdges.isEmpty())
+            throw new RuntimeException("match edges shoudn't be empty");
         
         // we're done:
         computedMatchEdges = true;

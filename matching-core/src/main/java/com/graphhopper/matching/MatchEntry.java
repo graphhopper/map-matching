@@ -29,11 +29,14 @@ import com.graphhopper.util.shapes.GHPoint3D;
  */
 public class MatchEntry {
     /**
-     * Describe how the state of this match in the matching process. 
+     * Describe how the state of this match in the matching process.
      */
-    public static enum MatchState { MATCHING_STATE_NOT_SET, NOT_USED_FOR_MATCHING, MATCHED };
+    public static enum MatchState {
+        MATCHING_STATE_NOT_SET, NOT_USED_FOR_MATCHING, MATCHED
+    };
+
     /**
-     * The state of this match in the matching process. 
+     * The state of this match in the matching process.
      */
     private MatchState matchState = MatchState.MATCHING_STATE_NOT_SET;
     /**
@@ -67,25 +70,26 @@ public class MatchEntry {
      * The index of the corresponding ViterbiMatchEntry in this sequence.
      */
     private int sequenceMatchEdgeIdx;
-    
+
     /**
-     * Create a MatchEntry from a GPXEntry, to be used in map-matching. 
+     * Create a MatchEntry from a GPXEntry, to be used in map-matching.
+     * 
      * @param gpxEntry
      */
     public MatchEntry(GPXEntry gpxEntry) {
         this.gpxEntry = gpxEntry;
     }
-    
+
     /**
-     * Flag this entry as not to be used for map-matching which can e.g. happen if there is
-     * more points in a given area than the resolution needed by the Viterbi algorithm.
+     * Flag this entry as not to be used for map-matching which can e.g. happen if there is more
+     * points in a given area than the resolution needed by the Viterbi algorithm.
      */
     protected void markAsNotUsedForMatching() {
         assert !stateSet;
         this.matchState = MatchState.NOT_USED_FOR_MATCHING;
         stateSet = true;
     }
-    
+
     /**
      * Update the matching information.
      * 

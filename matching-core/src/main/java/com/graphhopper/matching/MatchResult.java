@@ -92,7 +92,7 @@ public class MatchResult {
             matchEdges.addAll(sequence.matchEdges);
         }
     }
-    
+
     /**
      * Compute statistics about the original GPX entries e.g. the cumulative point-to-point
      * straight line distance. This is generally so we can compare with the corresponding

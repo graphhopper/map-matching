@@ -20,8 +20,8 @@ package com.graphhopper.matching;
 import com.graphhopper.util.EdgeIteratorState;
 
 /**
- * A MatchEdge is an edge on a MatchSequence - i.e. one of the edges making up the final
- * map-matched route. This includes the time at which the edge was travelled.
+ * A MatchEdge is an edge on a MatchSequence - i.e. one of the edges making up the final map-matched
+ * route. This includes the time at which the edge was travelled.
  * 
  * @author kodonnell
  */
@@ -32,11 +32,11 @@ public class MatchEdge {
      */
     public final EdgeIteratorState edge;
     /**
-     * The time which this edge was first entered. This is inclusive.
+     * Time (inclusive, in milliseconds) when first was on this edge. -1 if not set.
      */
     public final long fromTime;
     /**
-     * The time at which this edge was left. This is exclusive.
+     * Time (exclusive, in milliseconds) when last was on this edge. -1 if not set.
      */
     public final long toTime;
 

@@ -23,16 +23,15 @@ import com.graphhopper.util.EdgeIteratorState;
 import com.graphhopper.util.GPXEntry;
 
 /**
- * During map matching this represents a map matching candidate, i.e. a potential snapped
- * point of a GPX entry. After map matching, this represents the map matched point of
- * an GPX entry.
+ * During map matching this represents a map matching candidate, i.e. a potential snapped point of a
+ * GPX entry. After map matching, this represents the map matched point of an GPX entry.
  * <p>
- * A GPXEntry can either be at an undirected real (tower) node or at a directed virtual node.
- * If this is at a directed virtual node then incoming paths from any previous GPXExtension
- * should arrive through {@link #getIncomingVirtualEdge()} and outgoing paths to any following
- * GPXExtension should start with {@link #getOutgoingVirtualEdge()}. This is achieved by
- * penalizing other edges for routing. Note that virtual nodes are always connected to their
- * adjacent nodes via 2 virtual edges (not counting reverse virtual edges).
+ * A GPXEntry can either be at an undirected real (tower) node or at a directed virtual node. If
+ * this is at a directed virtual node then incoming paths from any previous GPXExtension should
+ * arrive through {@link #getIncomingVirtualEdge()} and outgoing paths to any following GPXExtension
+ * should start with {@link #getOutgoingVirtualEdge()}. This is achieved by penalizing other edges
+ * for routing. Note that virtual nodes are always connected to their adjacent nodes via 2 virtual
+ * edges (not counting reverse virtual edges).
  *
  * @author Peter Karich
  * @author kodonnell
@@ -75,8 +74,8 @@ public class Candidate {
      * Creates a directed candidate for a virtual node.
      */
     public Candidate(GPXEntry entry, QueryResult queryResult,
-                        VirtualEdgeIteratorState incomingVirtualEdge,
-                        VirtualEdgeIteratorState outgoingVirtualEdge) {
+            VirtualEdgeIteratorState incomingVirtualEdge,
+            VirtualEdgeIteratorState outgoingVirtualEdge) {
         this.entry = entry;
         this.queryResult = queryResult;
         this.isDirected = true;
@@ -93,8 +92,8 @@ public class Candidate {
     }
 
     /**
-     * Returns whether this GPXExtension is directed. This is true if the snapped point
-     * is a virtual node, otherwise the snapped node is a real (tower) node and false is returned.
+     * Returns whether this GPXExtension is directed. This is true if the snapped point is a virtual
+     * node, otherwise the snapped node is a real (tower) node and false is returned.
      */
     public boolean isDirected() {
         return isDirected;
@@ -128,12 +127,9 @@ public class Candidate {
 
     @Override
     public String toString() {
-        return "GPXExtension{" +
-                "closest node=" + queryResult.getClosestNode() +
-                " at " + queryResult.getSnappedPoint().getLat() + "," +
-                queryResult.getSnappedPoint().getLon() +
-                ", incomingEdge=" + incomingVirtualEdge +
-                ", outgoingEdge=" + outgoingVirtualEdge +
-                '}';
+        return "GPXExtension{" + "closest node=" + queryResult.getClosestNode() + " at "
+                + queryResult.getSnappedPoint().getLat() + ","
+                + queryResult.getSnappedPoint().getLon() + ", incomingEdge=" + incomingVirtualEdge
+                + ", outgoingEdge=" + outgoingVirtualEdge + '}';
     }
 }

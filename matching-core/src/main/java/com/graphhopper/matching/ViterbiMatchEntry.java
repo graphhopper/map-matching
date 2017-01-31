@@ -44,7 +44,7 @@ import com.graphhopper.util.EdgeIteratorState;
 
 /**
  * This is a wrapper around an input MatchEntry (which is itself a wrapped around an input
- * GPXEntry), which contains additional information to work with the Viterbi algorithm (via 
+ * GPXEntry), which contains additional information to work with the Viterbi algorithm (via
  * hmm-lib). For example, it stores the candidates, emission/transition probabilities, etc.
  * 
  * @author Stefan Holder
@@ -116,7 +116,6 @@ public class ViterbiMatchEntry {
         final double returnAllResultsWithin = distCalc.calcNormalizedDist(searchRadiusMeters);
 
         // implement a cheap priority queue via List, sublist and Collections.sort
-        // TODO: check hasn't already been run ...
         final List<QueryResult> candidateLocations = new ArrayList<QueryResult>();
         GHIntHashSet set = new GHIntHashSet();
 
@@ -149,9 +148,8 @@ public class ViterbiMatchEntry {
                                 for (int qrIndex = 0; qrIndex < candidateLocations.size();
                                         qrIndex++) {
                                     QueryResult qr = candidateLocations.get(qrIndex);
-                                    // overwrite older queryResults which are
-                                    // potentially more far away than
-                                    // returnAllResultsWithin
+                                    // overwrite older queryResults which are potentially more far
+                                    // away than returnAllResultsWithin
                                     if (qr.getQueryDistance() > returnAllResultsWithin) {
                                         index = qrIndex;
                                         break;
@@ -292,7 +290,7 @@ public class ViterbiMatchEntry {
      * @param transitionLogProbability the transition log probability
      */
     public void addTransitionLogProbability(Candidate fromCandidate, Candidate toCandidate,
-                                            double transitionLogProbability) {
+            double transitionLogProbability) {
         final Transition<Candidate> transition = new Transition<>(fromCandidate, toCandidate);
         if (transitionLogProbabilities.containsKey(transition)) {
             throw new IllegalArgumentException("Transition has already been added.");
@@ -301,11 +299,8 @@ public class ViterbiMatchEntry {
     }
 
     /**
-     * Does not need to be called for non-existent transitions.
-     */
-    /**
-     * Save the transition path for a given transition between two candidates. Note
-     * that this does not need to be called for non-existent transitions.
+     * Save the transition path for a given transition between two candidates. Note that this does
+     * not need to be called for non-existent transitions.
      * 
      * @param fromCandidate the from candidate
      * @param toCandidate the to candidate
