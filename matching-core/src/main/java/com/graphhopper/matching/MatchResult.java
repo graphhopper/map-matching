@@ -32,7 +32,13 @@ import com.graphhopper.util.GPXEntry;
  */
 public class MatchResult {
 
+    /**
+     * The original GPX entries (wrapped in MatchEntry's to include matching information).
+     */
     public final List<MatchEntry> matchEntries;
+    /**
+     * The sequences that make up the match result.
+     */
     public final List<MatchSequence> sequences;
     /**
      * The length (meters) of the total *matched* path, excluding sequence breaks.
@@ -58,12 +64,24 @@ public class MatchResult {
      */
     private List<MatchEdge> matchEdges = null;
     
+    /**
+     * Create a match result.
+     * 
+     * @param matchEntries
+     * @param sequences
+     */
     public MatchResult(List<MatchEntry> matchEntries, List<MatchSequence> sequences) {
         this.matchEntries = matchEntries;
         this.sequences = sequences;
     }
     
-    public void computeEdgeMatches(Map<String, EdgeIteratorState> virtualEdgesMap, int nodeCount) {
+    /**
+     * Compute the (real) edges that make up this MatchResult, and some summary information.
+     * 
+     * @param virtualEdgesMap map to convert virtual edges to real ones
+     * @param nodeCount number of nodes in the base graph (so we can detect virtual nodes)
+     */
+    public void computeMatcheEdges(Map<String, EdgeIteratorState> virtualEdgesMap, int nodeCount) {
         matchEdges = new ArrayList<MatchEdge>();
         matchDistance = 0;
         matchDuration = 0;
@@ -75,6 +93,13 @@ public class MatchResult {
         }
     }
     
+    /**
+     * Compute statistics about the original GPX entries e.g. the cumulative point-to-point
+     * straight line distance. This is generally so we can compare with the corresponding
+     * match statistics.
+     * 
+     * @param distCalc DistanceCalc to use for calculating distances between GPX entries.
+     */
     public void computeGPXStats(DistanceCalc distCalc) {
         gpxEntriesDistance = 0;
         GPXEntry lastGPXEntry = null;

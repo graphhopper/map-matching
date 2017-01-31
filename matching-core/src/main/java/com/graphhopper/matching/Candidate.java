@@ -39,10 +39,25 @@ import com.graphhopper.util.GPXEntry;
  * @author Stefan Holder
  */
 public class Candidate {
+    /**
+     * The original GPX entry for which this candidate is for.
+     */
     private final GPXEntry entry;
+    /**
+     * The QueryResult defining this candidate location.
+     */
     private final QueryResult queryResult;
+    /**
+     * Flag for whether or not this is a directed candidate.
+     */
     private final boolean isDirected;
+    /**
+     * The virtual edge that should be used by incoming paths.
+     */
     private final EdgeIteratorState incomingVirtualEdge;
+    /**
+     * The virtual edge that should be used by outgoing paths.
+     */
     private final EdgeIteratorState outgoingVirtualEdge;
 
     /**

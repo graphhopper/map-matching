@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.Map;
 
 import com.bmw.hmm.SequenceState;
-import com.graphhopper.matching.util.ViterbiMatchEntry;
 import com.graphhopper.routing.Path;
 import com.graphhopper.routing.weighting.Weighting;
 import com.graphhopper.storage.Graph;
@@ -89,6 +88,14 @@ public class MatchSequence {
      */
     private long matchDuration;
     
+    /**
+     * Create a new MatchSequence.
+     * 
+     * @param matchedSequence
+     * @param viterbiMatchEntriess
+     * @param viterbiBreakReason
+     * @param type
+     */
     public MatchSequence(List<SequenceState<Candidate, MatchEntry, Path>> matchedSequence,
             List<ViterbiMatchEntry> viterbiMatchEntriess,
             ViterbiBreakReason viterbiBreakReason, SequenceType type) {
@@ -167,19 +174,33 @@ public class MatchSequence {
             realFromTime = realEndTime;
         }
         
-        // we should have some edge matches:
-//        if (edgeMatches.isEmpty())
+        // TODO: should we have some edge matches?
         
         // we're done:
         computedMatchEdges = true;
     }
 
+    /**
+     * Check whether two edges are equal
+     * @param edge1
+     * @param edge2
+     * @return true if edge1 'equals' edge2, else false.
+     */
     private boolean equalEdges(EdgeIteratorState edge1, EdgeIteratorState edge2) {
         return edge1.getEdge() == edge2.getEdge()
                 && edge1.getBaseNode() == edge2.getBaseNode()
                 && edge1.getAdjNode() == edge2.getAdjNode();
     }
     
+    /**
+     * Get the real edge containing a given edge (which may be the same thing if it's real already)
+     * 
+     * @param virtualEdgesMap a map of virtual edges to real ones
+     * @param edgeIteratorState the edge to resolve
+     * @param nodeCount number of nodes in the base graph (so we can detect virtuality)
+     * @return if edgeIteratorState is real, just returns it. Otherwise returns the real edge
+     *         containing edgeIteratorState.
+     */
     private EdgeIteratorState resolveToRealEdge(Map<String, EdgeIteratorState> virtualEdgesMap, EdgeIteratorState edgeIteratorState, int nodeCount) {
         EdgeIteratorState directedRealEdge;
         if (isVirtualNode(edgeIteratorState.getBaseNode(), nodeCount) || isVirtualNode(edgeIteratorState.getAdjNode(), nodeCount)) {
@@ -193,14 +214,30 @@ public class MatchSequence {
         return directedRealEdge;
     }
 
+    /**
+     * Detects virtuality of nodes.
+     * 
+     * @param node node ID
+     * @param nodeCount number of nodes in base graph
+     * @return true if node is virtual
+     */
     private boolean isVirtualNode(int node, int nodeCount) {
         return node >= nodeCount;
     }
 
+    /**
+     * Creates a unique key for an edge
+     * 
+     * @param iter edge to create key for
+     * @return a unique key for this edge
+     */
     private String virtualEdgesMapKey(EdgeIteratorState iter) {
         return iter.getBaseNode() + "-" + iter.getEdge() + "-" + iter.getAdjNode();
     }
     
+    /**
+     * Wrapper around Path so we can call some private methods publicly.
+     */
     private static class MapMatchedPath extends Path {
 
         public MapMatchedPath(Graph graph, Weighting weighting) {
@@ -218,11 +255,21 @@ public class MatchSequence {
         }
     }
 
+    /**
+     * Utility method to ensure edges are computed before they're accessed.
+     */
     private void checkEdgesComputed() {
         if (!computedMatchEdges)
             throw new RuntimeException("must call computeMatchEdges first");
     }
     
+    /**
+     * Calculate the path for this sequence.
+     * 
+     * @param graph the base graph
+     * @param weighting the weighting (which should be the same as that used in map-matching)
+     * @return the path of this sequence
+     */
     public Path calcPath(Graph graph, Weighting weighting) {
         checkEdgesComputed();
         MapMatchedPath p = new MapMatchedPath(graph, weighting);

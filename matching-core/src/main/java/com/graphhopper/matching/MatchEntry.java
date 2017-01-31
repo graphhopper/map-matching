@@ -21,38 +21,91 @@ import com.graphhopper.util.EdgeIteratorState;
 import com.graphhopper.util.GPXEntry;
 import com.graphhopper.util.shapes.GHPoint3D;
 
+/**
+ * A MatchEntry is a thin wrapper use to store a) the original GPX entry, and b) any additional
+ * information from the map-matching (e.g. where this GPX entry was actually mapped to, etc.)
+ * 
+ * @author kodonnell
+ */
 public class MatchEntry {
-    public static enum MatchState { MATCHING_NOT_STARTED, NOT_USED_FOR_MATCHING, MATCHED };
-    private MatchState matchState = MatchState.MATCHING_NOT_STARTED; 
+    /**
+     * Describe how the state of this match in the matching process. 
+     */
+    public static enum MatchState { MATCHING_STATE_NOT_SET, NOT_USED_FOR_MATCHING, MATCHED };
+    /**
+     * The state of this match in the matching process. 
+     */
+    private MatchState matchState = MatchState.MATCHING_STATE_NOT_SET;
+    /**
+     * Flag to ensure the matchState is only set once.
+     */
+    private boolean stateSet = false;
+    /**
+     * The original GPX entry.
+     */
     public final GPXEntry gpxEntry;
-    private int sequenceIdx;
+    /**
+     * The point on the map-match result which this entry was 'snapped' to. E.g. if the original
+     * entry was 5m off a road, and that road was in the map-match result, then the snappedPoint
+     * will be the point on that road 5m away from the original GPX entry. Note that snappedPoint
+     * should be on directedRealEdge.
+     */
     private GHPoint3D snappedPoint;
+    /**
+     * The (real) edge containing the snappedPoint.
+     */
     private EdgeIteratorState directedRealEdge;
-    private int sequenceMatchEdgeIdx;
+    /**
+     * The distance along the directedRealEdge (starting from the baseNode) to the snappedPoint.
+     */
     private double distanceAlongRealEdge;
-    private boolean locked = false;
+    /**
+     * The index of the sequence in the map-match result containing this entry.
+     */
+    private int sequenceIdx;
+    /**
+     * The index of the corresponding ViterbiMatchEntry in this sequence.
+     */
+    private int sequenceMatchEdgeIdx;
     
-    protected MatchEntry(GPXEntry gpxEntry) {
+    /**
+     * Create a MatchEntry from a GPXEntry, to be used in map-matching. 
+     * @param gpxEntry
+     */
+    public MatchEntry(GPXEntry gpxEntry) {
         this.gpxEntry = gpxEntry;
     }
     
+    /**
+     * Flag this entry as not to be used for map-matching which can e.g. happen if there is
+     * more points in a given area than the resolution needed by the Viterbi algorithm.
+     */
     protected void markAsNotUsedForMatching() {
-        assert !locked;
+        assert !stateSet;
         this.matchState = MatchState.NOT_USED_FOR_MATCHING;
-        locked = true;
+        stateSet = true;
     }
     
+    /**
+     * Update the matching information.
+     * 
+     * @param sequenceIdx
+     * @param sequenceMatchEdgeIdx
+     * @param directedRealEdge
+     * @param distanceAlongRealEdge
+     * @param snappedPoint
+     */
     protected void saveMatchingState(int sequenceIdx, int sequenceMatchEdgeIdx,
             EdgeIteratorState directedRealEdge, double distanceAlongRealEdge,
             GHPoint3D snappedPoint) {
-        assert !locked;
+        assert !stateSet;
         this.matchState = MatchState.MATCHED;
         this.sequenceIdx = sequenceIdx;
         this.sequenceMatchEdgeIdx = sequenceMatchEdgeIdx;
         this.directedRealEdge = directedRealEdge;
         this.distanceAlongRealEdge = distanceAlongRealEdge;
         this.snappedPoint = snappedPoint;
-        locked = true;
+        stateSet = true;
     }
 
     public MatchState getMatchState() {

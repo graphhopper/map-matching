@@ -23,7 +23,6 @@ import com.graphhopper.GraphHopper;
 import com.graphhopper.matching.MatchSequence.ViterbiBreakReason;
 import com.graphhopper.matching.MatchSequence.SequenceType;
 import com.graphhopper.matching.util.HmmProbabilities;
-import com.graphhopper.matching.util.ViterbiMatchEntry;
 import com.graphhopper.routing.*;
 import com.graphhopper.routing.ch.CHAlgoFactoryDecorator;
 import com.graphhopper.routing.ch.PrepareContractionHierarchies;
@@ -61,10 +60,12 @@ import java.util.Map.Entry;
  */
 public class MapMatching {
 
-    // Penalty in m for each U-turn performed at the beginning or end of a path between two
+    // Penalty in m for each U-turn performed at the beginning or end of a path
+    // between two
     // subsequent candidates.
     private double uTurnDistancePenalty;
 
+    private final Graph graph;
     private final Graph routingGraph;
     private final LocationIndexTree locationIndex;
     private double measurementErrorSigma = 50.0;
@@ -76,14 +77,14 @@ public class MapMatching {
 
     public MapMatching(GraphHopper hopper, AlgorithmOptions algoOptions) {
         // Convert heading penalty [s] into U-turn penalty [m]
-        final double PENALTY_CONVERSION_VELOCITY = 5;  // [m/s]
+        final double PENALTY_CONVERSION_VELOCITY = 5; // [m/s]
         final double headingTimePenalty = algoOptions.getHints().getDouble(
                 Parameters.Routing.HEADING_PENALTY, Parameters.Routing.DEFAULT_HEADING_PENALTY);
         uTurnDistancePenalty = headingTimePenalty * PENALTY_CONVERSION_VELOCITY;
 
         this.locationIndex = (LocationIndexTree) hopper.getLocationIndex();
 
-        // create hints from algoOptions, so we can create the algorithm factory        
+        // create hints from algoOptions, so we can create the algorithm factory
         HintsMap hints = new HintsMap();
         for (Entry<String, String> entry : algoOptions.getHints().toMap().entrySet()) {
             hints.put(entry.getKey(), entry.getValue());
@@ -94,7 +95,8 @@ public class MapMatching {
             hints.put(Parameters.CH.DISABLE, true);
         }
 
-        // TODO ugly workaround, duplicate data: hints can have 'vehicle' but algoOptions.weighting too!?
+        // TODO ugly workaround, duplicate data: hints can have 'vehicle' but
+        // algoOptions.weighting too!?
         // Similar problem in GraphHopper class
         String vehicle = hints.getVehicle();
         if (vehicle.isEmpty()) {
@@ -113,6 +115,7 @@ public class MapMatching {
 
         algoFactory = hopper.getAlgorithmFactory(hints);
 
+        graph = hopper.getGraphHopperStorage();
         Weighting weighting = null;
         CHAlgoFactoryDecorator chFactoryDecorator = hopper.getCHFactoryDecorator();
         boolean forceFlexibleMode = hints.getBool(Parameters.CH.DISABLE, false);
@@ -125,10 +128,9 @@ public class MapMatching {
             weighting = ((PrepareContractionHierarchies) algoFactory).getWeighting();
             this.routingGraph = hopper.getGraphHopperStorage().getGraph(CHGraph.class, weighting);
         } else {
-            weighting = algoOptions.hasWeighting()
-                    ? algoOptions.getWeighting()
+            weighting = algoOptions.hasWeighting() ? algoOptions.getWeighting()
                     : new FastestWeighting(hopper.getEncodingManager().getEncoder(vehicle),
-                    algoOptions.getHints());
+                            algoOptions.getHints());
             this.routingGraph = hopper.getGraphHopperStorage();
         }
 
@@ -159,24 +161,28 @@ public class MapMatching {
     /**
      * This method does the actual map matching.
      * <p>
-     * @param gpxList the input list with GPX points which should match to edges
-     *                of the graph specified in the constructor
+     * 
+     * @param gpxList
+     *            the input list with GPX points which should match to edges of
+     *            the graph specified in the constructor
      */
     public MatchResult doWork(List<GPXEntry> gpxList) {
         if (gpxList.size() < 2) {
-            throw new IllegalArgumentException("Too few coordinates in input file ("
-                    + gpxList.size() + "). Correct format?");
+            throw new IllegalArgumentException(
+                    "Too few coordinates in input file (" + gpxList.size() + "). Correct format?");
         }
 
         // map to matchEntries:
         List<MatchEntry> matchEntries = new ArrayList<MatchEntry>(gpxList.size());
-        for (GPXEntry gpxEntry: gpxList) {
+        for (GPXEntry gpxEntry : gpxList) {
             matchEntries.add(new MatchEntry(gpxEntry));
         }
-        
-        // create map matching events from the input GPX list:
-        final EdgeFilter edgeFilter = new DefaultEdgeFilter(algoOptions.getWeighting().getFlagEncoder());
-        List<ViterbiMatchEntry> viterbiMatchEntries = createviterbiMatchEntries(matchEntries, edgeFilter);
+
+        // create map matching events from the input match entries:
+        final EdgeFilter edgeFilter = new DefaultEdgeFilter(
+                algoOptions.getWeighting().getFlagEncoder());
+        List<ViterbiMatchEntry> viterbiMatchEntries = createviterbiMatchEntries(matchEntries,
+                edgeFilter);
 
         // create the candidates per event:
         final QueryGraph queryGraph = new QueryGraph(routingGraph).setUseEdgeExplorerCache(true);
@@ -186,26 +192,31 @@ public class MapMatching {
         // compute the most likely sequences of map matching candidates:
         List<MatchSequence> sequences = computeViterbiSequence(viterbiMatchEntries, queryGraph);
 
-        // at this stage, we have a sequence of most likely results stored as viterbi/HMM
+        // at this stage, we have a sequence of most likely results stored as
+        // viterbi/HMM
         // structures - let's convert these to more useful things:
         final EdgeExplorer explorer = queryGraph.createEdgeExplorer(edgeFilter);
-        MatchResult matchResult = computeMatchResult(sequences, viterbiMatchEntries, matchEntries, allCandidateLocations, explorer);
+        MatchResult matchResult = computeMatchResult(sequences, viterbiMatchEntries, matchEntries,
+                allCandidateLocations, explorer);
 
         return matchResult;
     }
-    
+
     /**
-     * Create map match events from the input GPX entries. This is largely reshaping the data,
-     * though it also clusters GPX entries which are too close together into single steps.
+     * Create map match events from the input GPX entries. This is largely
+     * reshaping the data, though it also clusters GPX entries which are too
+     * close together into single steps.
      */
-    private List<ViterbiMatchEntry> createviterbiMatchEntries(List<MatchEntry> matchEntries, EdgeFilter edgeFilter) {
+    private List<ViterbiMatchEntry> createviterbiMatchEntries(List<MatchEntry> matchEntries,
+            EdgeFilter edgeFilter) {
         final List<ViterbiMatchEntry> viterbiMatchEntries = new ArrayList<ViterbiMatchEntry>();
         ViterbiMatchEntry lastViterbiMatchEntryAdded = null;
         MatchEntry prevEntry = null;
         int last = matchEntries.size() - 1;
         for (int i = 0; i <= last; i++) {
             MatchEntry matchEntry = matchEntries.get(i);
-            // ignore those which are within 2 * measurementErrorSigma of the previous (though
+            // ignore those which are within 2 * measurementErrorSigma of the
+            // previous (though
             // never ignore the first/last).
             if (i == 0 || i == last
                     || distanceCalc.calcDist(prevEntry.gpxEntry.getLat(),
@@ -220,47 +231,50 @@ public class MapMatching {
         }
         return viterbiMatchEntries;
     }
-    
+
     /**
-     * Create candidates per map match event 
+     * Create candidates per map match event
      */
-    private void calculateCandidatesPerEvent(List<ViterbiMatchEntry> viterbiMatchEntries, 
+    private void calculateCandidatesPerEvent(List<ViterbiMatchEntry> viterbiMatchEntries,
             List<QueryResult> allCandidateLocations, QueryGraph queryGraph) {
 
-        // first, find all of the *real* candidate location for each event i.e. the nodes/edges
-        // that are nearby to the GPX entry location.
-        final EdgeFilter edgeFilter = new DefaultEdgeFilter(algoOptions.getWeighting().getFlagEncoder());
+        // first, find all of the *real* candidate locations for each event i.e.
+        // the nodes/edges that are nearby to the GPX entry location.
+        final EdgeFilter edgeFilter = new DefaultEdgeFilter(
+                algoOptions.getWeighting().getFlagEncoder());
         final List<List<QueryResult>> candidateLocationsPerEvent = new ArrayList<List<QueryResult>>();
-        for (ViterbiMatchEntry viterbiMatchEntry: viterbiMatchEntries) {
-            // lookup the entry in the graph:
-            List<QueryResult> candidateLocations = viterbiMatchEntry.findCandidateLocations(routingGraph,
-                    locationIndex, edgeFilter, measurementErrorSigma);
-            // record:
+        for (ViterbiMatchEntry viterbiMatchEntry : viterbiMatchEntries) {
+            // TODO: shouldn't we find those within e.g. 5 * accuracy? Otherwise we're not effectively
+            // utilising the sigma distribution for emission probability?
+            List<QueryResult> candidateLocations = viterbiMatchEntry.findCandidateLocations(
+                    graph, locationIndex, edgeFilter, measurementErrorSigma);
             allCandidateLocations.addAll(candidateLocations);
             candidateLocationsPerEvent.add(candidateLocations);
         }
-        
-        // lookup each of the real candidate locations in the query graph (which virtualizes 
-        // them, if required). Note we need to do this in this manner since a) we need to create
-        // all virtual nodes/edges in the same queryGraph, and b) we can only call 'lookup' once.
+
+        // lookup each of the real candidate locations in the query graph (which
+        // virtualizes them, if required). Note we need to do this in this
+        // manner since a) we need to create all virtual nodes/edges in the same
+        // queryGraph, and b) we can only call 'lookup' once.
         queryGraph.lookup(allCandidateLocations);
 
         // create the final candidate and viterbiMatchEntry per event:
-        int i = 0;
-        for (ViterbiMatchEntry viterbiMatchEntry: viterbiMatchEntries) {
-            viterbiMatchEntry.createCandidates(candidateLocationsPerEvent.get(i), queryGraph);
-            i++;
+        for (int i = 0; i < viterbiMatchEntries.size(); i++) {
+            viterbiMatchEntries.get(i).createCandidates(candidateLocationsPerEvent.get(i),
+                    queryGraph);
         }
     }
 
     /*
-     * Run the viterbi algorithm on our HMM model. Note that viterbi breaks can occur (e.g. if no
-     * candidates are found for a given viterbiMatchEntry), and we handle these by returning a list of 
-     * complete sequences (each of which is unbroken). It is possible that a sequence contains only
-     * a single viterbiMatchEntry.
+     * Run the viterbi algorithm on our HMM model. Note that viterbi breaks can
+     * occur (e.g. if no candidates are found for a given viterbiMatchEntry),
+     * and we handle these by returning a list of complete sequences (each of
+     * which is unbroken). It is possible that a sequence contains only a single
+     * viterbiMatchEntry.
      * 
-     * Note: we only break sequences with 'physical' reasons (e.g. no candidates nearby) and not
-     * algorithmic ones (e.g. maxVisitedNodes exceeded) - the latter should throw errors.
+     * Note: we only break sequences with 'physical' reasons (e.g. no candidates
+     * nearby) and not algorithmic ones (e.g. maxVisitedNodes exceeded) - the
+     * latter should throw errors.
      */
     private List<MatchSequence> computeViterbiSequence(List<ViterbiMatchEntry> viterbiMatchEntries,
             final QueryGraph queryGraph) {
@@ -275,10 +289,11 @@ public class MapMatching {
         ViterbiBreakReason breakReason;
         int n = viterbiMatchEntries.size();
         for (int viterbiMatchEntryIdx = 0; viterbiMatchEntryIdx < n; viterbiMatchEntryIdx++) {
-        
+
             ViterbiMatchEntry viterbiMatchEntry = viterbiMatchEntries.get(viterbiMatchEntryIdx);
-                        
-            // always calculate emission probabilities regardless of place in sequence:
+
+            // always calculate emission probabilities regardless of place in
+            // sequence:
             computeEmissionProbabilities(viterbiMatchEntry, probabilities);
 
             if (seqprevViterbiMatchEntry == null) {
@@ -291,14 +306,15 @@ public class MapMatching {
             } else {
                 // add this step to current sequence:
                 assert currentSequenceSize > 0;
-                computeTransitionProbabilities(seqprevViterbiMatchEntry, viterbiMatchEntry, probabilities,
-                        queryGraph);
+                computeTransitionProbabilities(seqprevViterbiMatchEntry, viterbiMatchEntry,
+                        probabilities, queryGraph);
                 viterbi.nextStep(viterbiMatchEntry.matchEntry, viterbiMatchEntry.candidates,
                         viterbiMatchEntry.emissionLogProbabilities,
                         viterbiMatchEntry.transitionLogProbabilities, viterbiMatchEntry.roadPaths);
             }
 
-            // if sequence is broken, then extract the sequence and reset for a new sequence:
+            // if sequence is broken, then extract the sequence and reset for a
+            // new sequence:
             if (viterbi.isBroken()) {
                 // try to guess the break reason:
                 breakReason = ViterbiBreakReason.UNKNOWN;
@@ -307,30 +323,47 @@ public class MapMatching {
                 } else if (viterbiMatchEntry.transitionLogProbabilities.isEmpty()) {
                     breakReason = ViterbiBreakReason.NO_POSSIBLE_TRANSITIONS;
                 }
-                final List<SequenceState<Candidate, MatchEntry, Path>> viterbiSequence = viterbi.computeMostLikelySequence();
-                // We need to handle two cases separately: single event sequences, and more.
+                final List<SequenceState<Candidate, MatchEntry, Path>> viterbiSequence = viterbi
+                        .computeMostLikelySequence();
+                // We need to handle two cases separately: single event
+                // sequences, and more.
                 if (seqprevViterbiMatchEntry == null) {
-                    // OK, we had a break immediately after initialising. In this case, we simply
-                    // add the single breaking event as a new (stationary) MapMatchSequence:
-                    // We rely on the fact that the viterbi.computeMostLikelySequence will include
+                    // OK, we had a break immediately after initialising. In
+                    // this case, we simply
+                    // add the single breaking event as a new (stationary)
+                    // MapMatchSequence:
+                    // We rely on the fact that the
+                    // viterbi.computeMostLikelySequence will include
                     // this first broken event:
                     assert viterbiSequence.size() == 1;
-                    sequences.add(new MatchSequence(viterbiSequence, currentSequenceviterbiMatchEntries, breakReason, SequenceType.STATIONARY));
+                    sequences.add(
+                            new MatchSequence(viterbiSequence, currentSequenceviterbiMatchEntries,
+                                    breakReason, SequenceType.STATIONARY));
                 } else {
-                    // OK, we had a break sometime after initialisation. In this case, we need to
-                    // add the sequence *excluding* the current viterbiMatchEntry (that broke it) and start
+                    // OK, we had a break sometime after initialisation. In this
+                    // case, we need to
+                    // add the sequence *excluding* the current
+                    // viterbiMatchEntry (that broke it) and start
                     // a new sequence with the breaking viterbiMatchEntry.
-                    // We rely on the fact that viterbi.computeMostLikelySequence will *not*
+                    // We rely on the fact that
+                    // viterbi.computeMostLikelySequence will *not*
                     // include the breaking viterbiMatchEntry.
                     assert viterbiSequence.size() >= 1;
-                    sequences.add(new MatchSequence(viterbiSequence, currentSequenceviterbiMatchEntries, breakReason, viterbiSequence.size() == 1 ? SequenceType.STATIONARY : SequenceType.SEQUENCE));
-                    // To start a new sequence with this (breaking) viterbiMatchEntry, we decrement the loop
-                    // counter so that this viterbiMatchEntry is repeated again in the next loop - though
-                    // then it should be treated as a start of a sequence (not partway through one)
+                    sequences.add(
+                            new MatchSequence(viterbiSequence, currentSequenceviterbiMatchEntries,
+                                    breakReason, viterbiSequence.size() == 1
+                                            ? SequenceType.STATIONARY : SequenceType.SEQUENCE));
+                    // To start a new sequence with this (breaking)
+                    // viterbiMatchEntry, we decrement the loop
+                    // counter so that this viterbiMatchEntry is repeated again
+                    // in the next loop - though
+                    // then it should be treated as a start of a sequence (not
+                    // partway through one)
                     viterbiMatchEntryIdx--;
                 }
-                
-                // In all cases, the sequence broke, so reset sequence variables:
+
+                // In all cases, the sequence broke, so reset sequence
+                // variables:
                 seqprevViterbiMatchEntry = null;
                 currentSequenceSize = 0;
                 // record saved count for check at the end:
@@ -345,17 +378,23 @@ public class MapMatching {
 
         // add the final sequence (if non-empty):
         if (seqprevViterbiMatchEntry != null) {
-            final List<SequenceState<Candidate, MatchEntry, Path>> viterbiSequence = viterbi.computeMostLikelySequence();
-            sequences.add(new MatchSequence(viterbiSequence, currentSequenceviterbiMatchEntries, ViterbiBreakReason.LAST_GPX_ENTRY, viterbiSequence.size() == 1 ? SequenceType.STATIONARY : SequenceType.SEQUENCE));
+            final List<SequenceState<Candidate, MatchEntry, Path>> viterbiSequence = viterbi
+                    .computeMostLikelySequence();
+            sequences.add(new MatchSequence(viterbiSequence, currentSequenceviterbiMatchEntries,
+                    ViterbiBreakReason.LAST_GPX_ENTRY,
+                    viterbiSequence.size() == 1 ? SequenceType.STATIONARY : SequenceType.SEQUENCE));
             totalSequencesSize += viterbiSequence.size();
         }
-        
+
         // check sequence lengths:
-        assert totalSequencesSize == viterbiMatchEntries.size() : "totalSequencesSize (" + totalSequencesSize + ") != viterbiMatchEntries.size() (" + viterbiMatchEntries.size() + ")";
+        assert totalSequencesSize == viterbiMatchEntries.size() : "totalSequencesSize ("
+                + totalSequencesSize + ") != viterbiMatchEntries.size() ("
+                + viterbiMatchEntries.size() + ")";
         return sequences;
     }
 
-    private void computeEmissionProbabilities(ViterbiMatchEntry viterbiMatchEntry, HmmProbabilities probabilities) {
+    private void computeEmissionProbabilities(ViterbiMatchEntry viterbiMatchEntry,
+            HmmProbabilities probabilities) {
         for (Candidate candidate : viterbiMatchEntry.candidates) {
             // road distance difference in meters
             final double distance = candidate.getQueryResult().getQueryDistance();
@@ -364,25 +403,31 @@ public class MapMatching {
         }
     }
 
-    private void computeTransitionProbabilities(ViterbiMatchEntry prevViterbiMatchEntry, ViterbiMatchEntry viterbiMatchEntry,
-            HmmProbabilities probabilities, QueryGraph queryGraph) {
-        final double linearDistance = distanceCalc.calcDist(prevViterbiMatchEntry.matchEntry.gpxEntry.lat,
-                prevViterbiMatchEntry.matchEntry.gpxEntry.lon, viterbiMatchEntry.matchEntry.gpxEntry.lat,
+    private void computeTransitionProbabilities(ViterbiMatchEntry prevViterbiMatchEntry,
+            ViterbiMatchEntry viterbiMatchEntry, HmmProbabilities probabilities,
+            QueryGraph queryGraph) {
+        final double linearDistance = distanceCalc.calcDist(
+                prevViterbiMatchEntry.matchEntry.gpxEntry.lat,
+                prevViterbiMatchEntry.matchEntry.gpxEntry.lon,
+                viterbiMatchEntry.matchEntry.gpxEntry.lat,
                 viterbiMatchEntry.matchEntry.gpxEntry.lon);
 
-        // TODO: check if viterbiMatchEntries are temporally ordered, e.g. viterbiMatchEntry comes after prevViterbiMatchEntry?
-        
+        // TODO: check if viterbiMatchEntries are temporally ordered, e.g.
+        // viterbiMatchEntry comes after prevViterbiMatchEntry?
+
         for (Candidate from : prevViterbiMatchEntry.candidates) {
             for (Candidate to : viterbiMatchEntry.candidates) {
                 // enforce heading if required:
                 if (from.isDirected()) {
-                    // Make sure that the path starting at the "from" candidate goes through
+                    // Make sure that the path starting at the "from" candidate
+                    // goes through
                     // the outgoing edge.
                     queryGraph.unfavorVirtualEdgePair(from.getQueryResult().getClosestNode(),
                             from.getIncomingVirtualEdge().getEdge());
                 }
                 if (to.isDirected()) {
-                    // Make sure that the path ending at "to" candidate goes through
+                    // Make sure that the path ending at "to" candidate goes
+                    // through
                     // the incoming edge.
                     queryGraph.unfavorVirtualEdgePair(to.getQueryResult().getClosestNode(),
                             to.getOutgoingVirtualEdge().getEdge());
@@ -397,20 +442,24 @@ public class MapMatching {
                 if (path.isFound()) {
                     viterbiMatchEntry.addRoadPath(from, to, path);
 
-                    // The router considers unfavored virtual edges using edge penalties
-                    // but this is not reflected in the path distance. Hence, we need to adjust the
+                    // The router considers unfavored virtual edges using edge
+                    // penalties
+                    // but this is not reflected in the path distance. Hence, we
+                    // need to adjust the
                     // path distance accordingly.
                     final double penalizedPathDistance = penalizedPathDistance(path,
                             queryGraph.getUnfavoredVirtualEdges());
                     final double transitionLogProbability = probabilities
                             .transitionLogProbability(penalizedPathDistance, linearDistance);
-                    viterbiMatchEntry.addTransitionLogProbability(from, to, transitionLogProbability);
+                    viterbiMatchEntry.addTransitionLogProbability(from, to,
+                            transitionLogProbability);
                 } else {
                     // fail if user hasn't set a high enough maxVisitedNodes
                     if (algo.getVisitedNodes() > algoOptions.getMaxVisitedNodes()) {
                         throw new RuntimeException(
-                                "couldn't compute transition probabilities as routing failed due to too small maxVisitedNodes ("
-                                        + algoOptions.getMaxVisitedNodes() + ")");
+                                "couldn't compute transition probabilities as routing failed due to"
+                                + " too small maxVisitedNodes ("
+                                + algoOptions.getMaxVisitedNodes() + ")");
                     }
                 }
                 queryGraph.clearUnfavoredStatus();
@@ -420,13 +469,14 @@ public class MapMatching {
     }
 
     /**
-     * Returns the path length plus a penalty if the starting/ending edge is unfavored.
+     * Returns the path length plus a penalty if the starting/ending edge is
+     * unfavored.
      */
-    private double penalizedPathDistance(Path path,
-                                         Set<EdgeIteratorState> penalizedVirtualEdges) {
+    private double penalizedPathDistance(Path path, Set<EdgeIteratorState> penalizedVirtualEdges) {
         double totalPenalty = 0;
 
-        // Unfavored edges in the middle of the path should not be penalized because we are
+        // Unfavored edges in the middle of the path should not be penalized
+        // because we are
         // only concerned about the direction at the start/end.
         final List<EdgeIteratorState> edges = path.calcEdges();
         if (!edges.isEmpty()) {
@@ -448,10 +498,10 @@ public class MapMatching {
 
         final Map<String, EdgeIteratorState> virtualEdgesMap = createVirtualEdgesMap(
                 allCandidateLocations, explorer);
-        
+
         MatchResult matchResult = new MatchResult(matchEntries, sequences);
-        matchResult.computeEdgeMatches(virtualEdgesMap, nodeCount);
-        
+        matchResult.computeMatcheEdges(virtualEdgesMap, nodeCount);
+
         // compute GPX stats from the original GPX track:
         matchResult.computeGPXStats(distanceCalc);
 
@@ -463,13 +513,14 @@ public class MapMatching {
     }
 
     /**
-     * Returns a map where every virtual edge maps to its real edge with correct orientation.
+     * Returns a map where every virtual edge maps to its real edge with correct
+     * orientation.
      */
     private Map<String, EdgeIteratorState> createVirtualEdgesMap(
             List<QueryResult> allCandidateLocations, EdgeExplorer explorer) {
         // TODO For map key, use the traversal key instead of string!
         Map<String, EdgeIteratorState> virtualEdgesMap = new HashMap<>();
-        for (QueryResult qr: allCandidateLocations) {
+        for (QueryResult qr : allCandidateLocations) {
             if (isVirtualNode(qr.getClosestNode())) {
                 EdgeIterator iter = explorer.setBaseNode(qr.getClosestNode());
                 while (iter.next()) {

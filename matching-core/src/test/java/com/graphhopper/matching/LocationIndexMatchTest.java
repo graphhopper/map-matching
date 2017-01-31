@@ -28,6 +28,8 @@ import com.graphhopper.storage.RAMDirectory;
 import com.graphhopper.storage.index.LocationIndexTree;
 import com.graphhopper.storage.index.QueryResult;
 import com.graphhopper.util.EdgeIteratorState;
+import com.graphhopper.util.GPXEntry;
+
 import java.util.*;
 import org.junit.*;
 import static org.junit.Assert.assertEquals;
@@ -67,10 +69,10 @@ public class LocationIndexMatchTest {
         ghStorage.edge(0, 1);
         ghStorage.edge(1, 2);
         ghStorage.edge(0, 3);
-        EdgeIteratorState edge1_4 = ghStorage.edge(1, 4);
+//        EdgeIteratorState edge1_4 = ghStorage.edge(1, 4);
         ghStorage.edge(2, 5);
         ghStorage.edge(3, 9);
-        EdgeIteratorState edge9_4 = ghStorage.edge(9, 4);
+//        EdgeIteratorState edge9_4 = ghStorage.edge(9, 4);
         EdgeIteratorState edge4_5 = ghStorage.edge(4, 5);
         ghStorage.edge(10, 9);
         ghStorage.edge(3, 6);
@@ -81,10 +83,12 @@ public class LocationIndexMatchTest {
 
         LocationIndexTree tmpIndex = new LocationIndexTree(ghStorage, new RAMDirectory());
         tmpIndex.prepareIndex();
-        LocationIndexMatch index = new LocationIndexMatch(ghStorage, tmpIndex);
 
         // query node 4 => get at least 4-5, 4-7
-        List<QueryResult> result = index.findNClosest(0.0004, 0.0006, EdgeFilter.ALL_EDGES, 15);
+        ViterbiMatchEntry entry = new ViterbiMatchEntry(
+                new MatchEntry(new GPXEntry(0.0004, 0.0006, 0)));
+        List<QueryResult> result = entry.findCandidateLocations(ghStorage, tmpIndex,
+                EdgeFilter.ALL_EDGES, 15);
         List<Integer> ids = new ArrayList<Integer>();
         for (QueryResult qr : result) {
             ids.add(qr.getClosestEdge().getEdge());

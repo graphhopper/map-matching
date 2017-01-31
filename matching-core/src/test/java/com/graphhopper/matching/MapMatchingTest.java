@@ -166,7 +166,7 @@ public class MapMatchingTest {
     /**
      * This test is to check behavior over large separated routes: it should
      * work if the user sets the maxVisitedNodes large enough. Input path:
-     * https://graphhopper.com/maps/?point=51.23%2C12.18&point=51.45%2C12.59&layer=Lyrk
+     * https://graphhopper.com/maps/?point=51.23%2C12.18&point=51.45%2C12.59&layer=OpenStreetMap
      */
     @Test
     public void testDistantPoints() {
@@ -223,14 +223,14 @@ public class MapMatchingTest {
      * This test is to check what happens when two GPX entries are on one edge
      * which is longer than 'separatedSearchDistance' - which is always 66m. GPX
      * input:
-     * https://graphhopper.com/maps/?point=51.359723%2C12.360108&point=51.358748%2C12.358798&point=51.358001%2C12.357597&point=51.358709%2C12.356511&layer=Lyrk
+     * https://graphhopper.com/maps/?point=51.359723%2C12.360108&point=51.358748%2C12.358798&point=51.358001%2C12.357597&point=51.358709%2C12.356511&layer=OpenStreetMap
      */
     @Test
     public void testSmallSeparatedSearchDistance() {
         List<GPXEntry> inputGPXEntries = new GPXFile()
                 .doImport("./src/test/resources/tour3-with-long-edge.gpx").getEntries();
         MapMatching mapMatching = new MapMatching(hopper, algoOptions);
-        mapMatching.setMeasurementErrorSigma(20);
+        mapMatching.setMeasurementErrorSigma(10);
         MatchResult mr = mapMatching.doWork(inputGPXEntries);
         assertEquals(Arrays.asList("Marbachstraße", "Weinligstraße", "Weinligstraße",
                 "Fechnerstraße", "Fechnerstraße"), fetchStreets(mr.getEdgeMatches()));
@@ -241,7 +241,7 @@ public class MapMatchingTest {
 
     /**
      * This test is to check that loops are maintained. GPX input:
-     * https://graphhopper.com/maps/?point=51.343657%2C12.360708&point=51.344982%2C12.364066&point=51.344841%2C12.361223&point=51.342781%2C12.361867&layer=Lyrk
+     * https://graphhopper.com/maps/?point=51.343657%2C12.360708&point=51.344982%2C12.364066&point=51.344841%2C12.361223&point=51.342781%2C12.361867&layer=OpenStreetMap
      */
     @Test
     public void testLoop() {
@@ -266,7 +266,7 @@ public class MapMatchingTest {
 
     /**
      * This test is to check that loops are maintained. GPX input:
-     * https://graphhopper.com/maps/?point=51.342439%2C12.361615&point=51.343719%2C12.362784&point=51.343933%2C12.361781&point=51.342325%2C12.362607&layer=Lyrk
+     * https://graphhopper.com/maps/?point=51.342439%2C12.361615&point=51.343719%2C12.362784&point=51.343933%2C12.361781&point=51.342325%2C12.362607&layer=OpenStreetMap
      */
     @Test
     public void testLoop2() {
@@ -286,7 +286,7 @@ public class MapMatchingTest {
      * This test is to check that U-turns are avoided when it's just measurement
      * error, though do occur when a point goes up a road further than the
      * measurement error. GPX input:
-     * https://graphhopper.com/maps/?point=51.343618%2C12.360772&point=51.34401%2C12.361776&point=51.343977%2C12.362886&point=51.344734%2C12.36236&point=51.345233%2C12.362055&layer=Lyrk
+     * https://graphhopper.com/maps/?point=51.343618%2C12.360772&point=51.34401%2C12.361776&point=51.343977%2C12.362886&point=51.344734%2C12.36236&point=51.345233%2C12.362055&layer=OpenStreetMap
      */
     @Test
     public void testUTurns() {
