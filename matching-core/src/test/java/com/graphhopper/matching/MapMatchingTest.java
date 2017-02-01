@@ -230,12 +230,12 @@ public class MapMatchingTest {
         List<GPXEntry> inputGPXEntries = new GPXFile()
                 .doImport("./src/test/resources/tour3-with-long-edge.gpx").getEntries();
         MapMatching mapMatching = new MapMatching(hopper, algoOptions);
-        mapMatching.setMeasurementErrorSigma(10);
+        mapMatching.setMeasurementErrorSigma(20);
         MatchResult mr = mapMatching.doWork(inputGPXEntries);
-        assertEquals(Arrays.asList("Marbachstraße", "Weinligstraße", "Weinligstraße",
+        assertEquals(Arrays.asList("Weinligstraße", "Weinligstraße", "Weinligstraße",
                 "Fechnerstraße", "Fechnerstraße"), fetchStreets(mr.getEdgeMatches()));
-        assertEquals(390, mr.getGpxEntriesLength(), 10);
-        assertEquals(390, mr.getMatchLength(), 10);
+        assertEquals(381, mr.getGpxEntriesLength(), 2);
+        assertEquals(381, mr.getMatchLength(), 2);
         assertEquals(mr.getGpxEntriesMillis(), mr.getMatchMillis(), 3000);
     }
 
