@@ -92,7 +92,7 @@ hopper.setEncodingManager(new EncodingManager(encoder));
 hopper.getCHFactoryDecorator().setEnabled(false);
 hopper.importOrLoad();
 
-// create MapMatching object, can and should be shared accross threads
+// create MapMatching object, can and should be shared across threads
 
 GraphHopperStorage graph = hopper.getGraphHopperStorage();
 LocationIndexMatch locationIndex = new LocationIndexMatch(graph,
