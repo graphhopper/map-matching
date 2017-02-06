@@ -36,9 +36,12 @@ import com.graphhopper.storage.Graph;
 import com.graphhopper.storage.index.LocationIndexTree;
 import com.graphhopper.storage.index.QueryResult;
 import com.graphhopper.util.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.Map.Entry;
+
 
 /**
  * This class matches real world GPX entries to the digital road network stored in GraphHopper. The
@@ -57,7 +60,9 @@ import java.util.Map.Entry;
  * @author kodonnell
  */
 public class MapMatching {
-
+    
+    private final Logger logger = LoggerFactory.getLogger(getClass());
+    
     // Penalty in m for each U-turn performed at the beginning or end of a path between two
     // subsequent candidates.
     private double uTurnDistancePenalty;
@@ -176,7 +181,7 @@ public class MapMatching {
         // create map matching events from the input match entries:
         final EdgeFilter edgeFilter = new DefaultEdgeFilter(
                 algoOptions.getWeighting().getFlagEncoder());
-        List<ViterbiMatchEntry> viterbiMatchEntries = createviterbiMatchEntries(matchEntries,
+        List<ViterbiMatchEntry> viterbiMatchEntries = createViterbiMatchEntries(matchEntries,
                 edgeFilter);
 
         // create the candidates per event:
@@ -184,8 +189,46 @@ public class MapMatching {
         final List<QueryResult> allCandidateLocations = new ArrayList<QueryResult>();
         calculateCandidatesPerEvent(viterbiMatchEntries, allCandidateLocations, queryGraph);
 
+        // TODO: refactor this into a separate methods per PR87 discussion
+        logger.debug("================= Query results =================");
+        int i = 1;
+        for (ViterbiMatchEntry entry : viterbiMatchEntries) {
+            logger.debug("Query results for GPX entry {}", i++);
+            for (Candidate candidate : entry.candidates) {
+                QueryResult qr = candidate.getQueryResult();
+                logger.debug(
+                        "Node id: {}, virtual: {}, snapped on: {}, pos: {},{}, "
+                                + "query distance: {}",
+                        qr.getClosestNode(), isVirtualNode(qr.getClosestNode()),
+                        qr.getSnappedPosition(), qr.getSnappedPoint().getLat(),
+                        qr.getSnappedPoint().getLon(), qr.getQueryDistance());
+            }
+        }
+        
+        logger.debug("=============== Time steps ===============");
+        i = 1;
+        for (ViterbiMatchEntry entry : viterbiMatchEntries) {
+            logger.debug("Candidates for time step {}", i++);
+            for (Candidate candidate : entry.candidates) {
+                logger.debug(candidate.toString());
+            }
+        }
+        
         // compute the most likely sequences of map matching candidates:
         List<MatchSequence> sequences = computeViterbiSequence(viterbiMatchEntries, queryGraph);
+        
+        // TODO: refactor this into a separate methods per PR87 discussion
+        logger.debug("=============== Viterbi results =============== ");
+        i = 1;
+        for (MatchSequence seq: sequences) {
+            int j = 1;
+            for (SequenceState<Candidate, MatchEntry, Path> ss: seq.matchedSequence) {
+                logger.debug("{}-{}: {}, path: {}", i, j, ss.state,
+                        ss.transitionDescriptor != null ? ss.transitionDescriptor.calcEdges() : null);
+                j++;
+            }
+            i++;
+        }
 
         // make it contiguous:
         List<MatchSequence> contiguousSequences = makeSequencesContiguous(sequences);
@@ -195,7 +238,14 @@ public class MapMatching {
         final EdgeExplorer explorer = queryGraph.createEdgeExplorer(edgeFilter);
         MatchResult matchResult = computeMatchResult(contiguousSequences, viterbiMatchEntries,
                 matchEntries, allCandidateLocations, explorer);
-
+        
+        // TODO: refactor this into a separate methods per PR87 discussion
+        logger.debug("=============== Matched real edges =============== ");
+        i = 1;
+        for (MatchEdge em : matchResult.getEdgeMatches()) {
+            logger.debug("{}: {}", i, em.edge);
+            i++;
+        }
         return matchResult;
     }
 
@@ -203,7 +253,7 @@ public class MapMatching {
      * Create map match events from the input GPX entries. This is largely reshaping the data,
      * though it also clusters GPX entries which are too close together into single steps.
      */
-    private List<ViterbiMatchEntry> createviterbiMatchEntries(List<MatchEntry> matchEntries,
+    private List<ViterbiMatchEntry> createViterbiMatchEntries(List<MatchEntry> matchEntries,
             EdgeFilter edgeFilter) {
         final List<ViterbiMatchEntry> viterbiMatchEntries = new ArrayList<ViterbiMatchEntry>();
         ViterbiMatchEntry lastViterbiMatchEntryAdded = null;
@@ -222,6 +272,8 @@ public class MapMatching {
                 prevEntry = matchEntry;
             } else {
                 matchEntry.markAsNotUsedForMatching();
+                // TODO: refactor this into a separate methods per PR87 discussion
+                logger.debug("Filter out GPX entry: {}", i + 1);
             }
         }
         return viterbiMatchEntries;
@@ -280,8 +332,11 @@ public class MapMatching {
         int totalSequencesSize = 0;
         ViterbiBreakReason breakReason;
         int n = viterbiMatchEntries.size();
+        // TODO: refactor this into a separate methods per PR87 discussion
+        logger.debug("\n=============== Paths ===============");
         for (int viterbiMatchEntryIdx = 0; viterbiMatchEntryIdx < n; viterbiMatchEntryIdx++) {
-
+            // TODO: refactor this into a separate methods per PR87 discussion
+            logger.debug("\nPaths to time step {}", viterbiMatchEntryIdx);
             ViterbiMatchEntry viterbiMatchEntry = viterbiMatchEntries.get(viterbiMatchEntryIdx);
 
             // always calculate emission probabilities regardless of place in sequence:
@@ -446,11 +501,15 @@ public class MapMatching {
                     // distance accordingly.
                     final double penalizedPathDistance = penalizedPathDistance(path,
                             queryGraph.getUnfavoredVirtualEdges());
+                    logger.debug("Path from: {}, to: {}, penalized path length: {}", from, to,
+                            penalizedPathDistance);
                     final double transitionLogProbability = probabilities
                             .transitionLogProbability(penalizedPathDistance, linearDistance);
                     viterbiMatchEntry.addTransitionLogProbability(from, to,
                             transitionLogProbability);
                 } else {
+                    // TODO: refactor this into a separate methods per PR87 discussion
+                    logger.debug("No path found for from: {}, to: {}", from, to);
                     // fail if user hasn't set a high enough maxVisitedNodes
                     if (algo.getVisitedNodes() > algoOptions.getMaxVisitedNodes()) {
                         throw new RuntimeException(
@@ -460,7 +519,6 @@ public class MapMatching {
                     }
                 }
                 queryGraph.clearUnfavoredStatus();
-
             }
         }
     }
