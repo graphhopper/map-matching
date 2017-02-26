@@ -155,34 +155,39 @@ public class MatchSequence {
             EdgeIteratorState edgeIteratorState = null;
             EdgeIteratorState directedRealEdge = null;
             int nEdges = edges.size();
-            for (int edgeIdx = 0; edgeIdx < nEdges; edgeIdx++) {
-                edgeIteratorState = edges.get(edgeIdx);
-                // get time:
-                long edgeToTime = edgeIdx == (nEdges - 1) ? realToTime
-                        : (long) (realFromTime
-                                + edgeIteratorState.getDistance() * realTimePerPathMeter);
-                directedRealEdge = resolveToRealEdge(virtualEdgesMap, edgeIteratorState, nodeCount);
-                if (lastEdgeAdded == null || !equalEdges(directedRealEdge, lastEdgeAdded)) {
-                    matchEdges.add(new MatchEdge(directedRealEdge, lastEdgeToTime, edgeToTime));
-                    lastEdgeToTime = edgeToTime;
-                    lastEdgeAdded = directedRealEdge;
+            // it's possible that nEdges = 0 ... e.g. we find a path from (51.45122883155668,
+            // 12.316070396818143) to (51.45123598872644, 12.316077738375368) which was empty but
+            // found: distance: 0.0, edges: 0, found: true, points: (51.45112037176908,
+            // 12.316004834681857).
+            // TODO: what's going on here? GH bug? Or something to do with how we've messed with
+            // the query graph?
+            if (nEdges > 0) {
+                for (int edgeIdx = 0; edgeIdx < nEdges; edgeIdx++) {
+                    edgeIteratorState = edges.get(edgeIdx);
+                    // get time:
+                    long edgeToTime = edgeIdx == (nEdges - 1) ? realToTime
+                            : (long) (realFromTime
+                                    + edgeIteratorState.getDistance() * realTimePerPathMeter);
+                    directedRealEdge = resolveToRealEdge(virtualEdgesMap, edgeIteratorState,
+                            nodeCount);
+                    if (lastEdgeAdded == null || !equalEdges(directedRealEdge, lastEdgeAdded)) {
+                        matchEdges.add(new MatchEdge(directedRealEdge, lastEdgeToTime, edgeToTime));
+                        lastEdgeToTime = edgeToTime;
+                        lastEdgeAdded = directedRealEdge;
+                    }
                 }
             }
-
-            // TODO: will these every be triggered?
-            if (edgeIteratorState == null)
-                throw new IllegalStateException("haven't handled case edgeIteratorState == null");
-            if (directedRealEdge == null)
-                throw new IllegalStateException("haven't handled case directedRealEdge == null");
 
             // save the matching information of the first match step in the sequence:
             if (j == 1) {
                 EdgeIteratorState firstDirectedRealEdge = resolveToRealEdge(virtualEdgesMap, edges.get(0), nodeCount);
-                matchedSequence.get(0).observation.saveMatchingState(0, 0, firstDirectedRealEdge, 0, matchedSequence.get(0).observation.getSnappedPoint());
+                matchedSequence.get(0).observation.saveMatchingState(0, 0, firstDirectedRealEdge, 0,
+                        matchedSequence.get(0).observation.getSnappedPoint());
             }
             
             // save the matching information to this match step:
-            matchStep.observation.saveMatchingState(j, matchEdges.size() - 1, directedRealEdge, edgeIteratorState.getDistance(), matchStep.observation.getSnappedPoint());
+            matchStep.observation.saveMatchingState(j, matchEdges.size() - 1, directedRealEdge,
+                    nEdges > 0 ? edgeIteratorState.getDistance() : 0, matchStep.observation.getSnappedPoint());
  
             // update fromTime for next loop to toTime
             realFromTime = realToTime;
