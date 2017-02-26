@@ -99,7 +99,12 @@ public class ViterbiMatchEntry {
     }
     
     /**
-     * Find all (real) edges/nodes locations which are within the provided search radius.
+     * Find all (real) edges/nodes locations which are within the provided search radius. Note that
+     * this searches at most 9 index cells to avoid performance problems, and hence if the radius is
+     * larger than the cell width then not all edges might be returned.
+     * 
+     * TODO: throw an error if searchRadiusMeters > index.getMinResolutionInMeter() as not all edges
+     * may be found.
      * 
      * @param graph the base graph to search
      * @param index the base location index to search
@@ -118,7 +123,8 @@ public class ViterbiMatchEntry {
         // implement a cheap priority queue via List, sublist and Collections.sort
         final List<QueryResult> candidateLocations = new ArrayList<QueryResult>();
         GHIntHashSet set = new GHIntHashSet();
-
+        
+        // Doing 2 iterations means searching 9 tiles.
         for (int iteration = 0; iteration < 2; iteration++) {
             // should we use the return value of earlyFinish?
             index.findNetworkEntries(lat, lon, set, iteration);
@@ -140,6 +146,12 @@ public class ViterbiMatchEntry {
                         @Override
                         protected boolean check(int node, double normedDist, int wayIndex,
                                 EdgeIteratorState edge, QueryResult.Position pos) {
+                            // TODO: refactor below:
+                            //   - should only add edges within search radius (below allows the
+                            //     returning of a candidate outside search radius if it's the only
+                            //     one. Removing this test would simplify it a lot.
+                            //   - create QueryResult first and the add/set as required - clean up
+                            //     the index tracking business.
                             if (normedDist < returnAllResultsWithin
                                     || candidateLocations.isEmpty()
                                     || candidateLocations.get(0).getQueryDistance() > normedDist) {
@@ -148,7 +160,7 @@ public class ViterbiMatchEntry {
                                 for (int qrIndex = 0; qrIndex < candidateLocations.size();
                                         qrIndex++) {
                                     QueryResult qr = candidateLocations.get(qrIndex);
-                                    // overwrite older queryResults which are potentially more far
+                                    // overwrite older queryResults which are potentially further
                                     // away than returnAllResultsWithin
                                     if (qr.getQueryDistance() > returnAllResultsWithin) {
                                         index = qrIndex;
@@ -204,13 +216,13 @@ public class ViterbiMatchEntry {
     }
     
     /**
-     * Create the (directed) candidates based on the provided candidate locations. 
+     * Create the (directed) candidates based on the provided candidate locations.
      * 
      * @param candidateLocations list of candidate location (as provided by findCandidateLocations
      *        but already looked up in queryGraph)
      * @param queryGraph the queryGraph being used
      */
-    public void createCandidates(List<QueryResult> candidateLocations, QueryGraph queryGraph) {
+    public void createCandidates(Collection<QueryResult> candidateLocations, QueryGraph queryGraph) {
         candidates = new ArrayList<Candidate>();
         for (QueryResult qr: candidateLocations) {
             int closestNode = qr.getClosestNode();

@@ -42,7 +42,6 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.Map.Entry;
 
-
 /**
  * This class matches real world GPX entries to the digital road network stored in GraphHopper. The
  * Viterbi algorithm is used to compute the most likely sequence of map matching candidates. The
@@ -60,9 +59,9 @@ import java.util.Map.Entry;
  * @author kodonnell
  */
 public class MapMatching {
-    
+
     private final Logger logger = LoggerFactory.getLogger(getClass());
-    
+
     // Penalty in m for each U-turn performed at the beginning or end of a path between two
     // subsequent candidates.
     private double uTurnDistancePenalty;
@@ -204,7 +203,7 @@ public class MapMatching {
                         qr.getSnappedPoint().getLon(), qr.getQueryDistance());
             }
         }
-        
+
         logger.debug("=============== Time steps ===============");
         i = 1;
         for (ViterbiMatchEntry entry : viterbiMatchEntries) {
@@ -213,18 +212,18 @@ public class MapMatching {
                 logger.debug(candidate.toString());
             }
         }
-        
+
         // compute the most likely sequences of map matching candidates:
         List<MatchSequence> sequences = computeViterbiSequence(viterbiMatchEntries, queryGraph);
-        
+
         // TODO: refactor this into a separate methods per PR87 discussion
         logger.debug("=============== Viterbi results =============== ");
         i = 1;
-        for (MatchSequence seq: sequences) {
+        for (MatchSequence seq : sequences) {
             int j = 1;
-            for (SequenceState<Candidate, MatchEntry, Path> ss: seq.matchedSequence) {
-                logger.debug("{}-{}: {}, path: {}", i, j, ss.state,
-                        ss.transitionDescriptor != null ? ss.transitionDescriptor.calcEdges() : null);
+            for (SequenceState<Candidate, MatchEntry, Path> ss : seq.matchedSequence) {
+                logger.debug("{}-{}: {}, path: {}", i, j, ss.state, ss.transitionDescriptor != null
+                        ? ss.transitionDescriptor.calcEdges() : null);
                 j++;
             }
             i++;
@@ -238,7 +237,7 @@ public class MapMatching {
         final EdgeExplorer explorer = queryGraph.createEdgeExplorer(edgeFilter);
         MatchResult matchResult = computeMatchResult(contiguousSequences, viterbiMatchEntries,
                 matchEntries, allCandidateLocations, explorer);
-        
+
         // TODO: refactor this into a separate methods per PR87 discussion
         logger.debug("=============== Matched real edges =============== ");
         i = 1;
@@ -304,9 +303,26 @@ public class MapMatching {
         // virtual nodes/edges in the same queryGraph, and b) we can only call 'lookup' once.
         queryGraph.lookup(allCandidateLocations);
 
+        // Different QueryResult can have the same tower node as their closest node. Hence, we now
+        // dedupe the query results of each GPX entry by their closest node (#91). This must be done
+        // after calling queryGraph.lookup() since this replaces some of the QueryResult nodes with
+        // virtual nodes. Virtual nodes are not deduped since there is at most one QueryResult per
+        // edge and virtual nodes are inserted into the middle of an edge. Reducing the number of
+        // QueryResults improves performance since less shortest/fastest routes need to be computed.
+        final List<Collection<QueryResult>> dedupedCandidateLocationsPerEvent = new ArrayList<Collection<QueryResult>>(
+                candidateLocationsPerEvent.size());
+        for (List<QueryResult> candidateLocations: candidateLocationsPerEvent) {
+            final Map<Integer, QueryResult> dedupedCandidateLocations = new HashMap<>(
+                    candidateLocations.size());
+            for (QueryResult qr : candidateLocations) {
+                dedupedCandidateLocations.put(qr.getClosestNode(), qr);
+            }
+            dedupedCandidateLocationsPerEvent.add(dedupedCandidateLocations.values());
+        }
+
         // create the final candidate and viterbiMatchEntry per event:
         for (int i = 0; i < viterbiMatchEntries.size(); i++) {
-            viterbiMatchEntries.get(i).createCandidates(candidateLocationsPerEvent.get(i),
+            viterbiMatchEntries.get(i).createCandidates(dedupedCandidateLocationsPerEvent.get(i),
                     queryGraph);
         }
     }
@@ -548,7 +564,6 @@ public class MapMatching {
     private MatchResult computeMatchResult(List<MatchSequence> sequences,
             List<ViterbiMatchEntry> viterbiMatchEntries, List<MatchEntry> matchEntries,
             List<QueryResult> allCandidateLocations, EdgeExplorer explorer) {
-
         final Map<String, EdgeIteratorState> virtualEdgesMap = createVirtualEdgesMap(
                 allCandidateLocations, explorer);
 
