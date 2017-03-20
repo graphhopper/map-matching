@@ -21,9 +21,9 @@ import com.graphhopper.GHRequest;
 import com.graphhopper.GHResponse;
 import com.graphhopper.GraphHopper;
 import com.graphhopper.matching.MapMatching;
-import com.graphhopper.matching.MatchEntry;
+import com.graphhopper.matching.TimeStep;
 import com.graphhopper.matching.MatchResult;
-import com.graphhopper.matching.ViterbiMatchEntry;
+import com.graphhopper.matching.HmmTimeStep;
 import com.graphhopper.reader.osm.GraphHopperOSM;
 import com.graphhopper.routing.AlgorithmOptions;
 import com.graphhopper.routing.util.*;
@@ -129,8 +129,8 @@ public class Measurement {
             public int doCalc(boolean warmup, int run) {
                 double lat = rand.nextDouble() * latDelta + bbox.minLat;
                 double lon = rand.nextDouble() * lonDelta + bbox.minLon;
-                ViterbiMatchEntry entry = new ViterbiMatchEntry(
-                        new MatchEntry(new GPXEntry(lat, lon, 0)));
+                HmmTimeStep entry = new HmmTimeStep(
+                        new TimeStep(new GPXEntry(lat, lon, 0)));
                 int val = entry.findCandidateLocations(graph, index, EdgeFilter.ALL_EDGES,
                         rand.nextDouble() * 500).size();
                 return val;

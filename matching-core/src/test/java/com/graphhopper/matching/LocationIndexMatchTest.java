@@ -85,8 +85,8 @@ public class LocationIndexMatchTest {
         tmpIndex.prepareIndex();
 
         // query node 4 => get at least 4-5, 4-7
-        ViterbiMatchEntry entry = new ViterbiMatchEntry(
-                new MatchEntry(new GPXEntry(0.0004, 0.0006, 0)));
+        HmmTimeStep entry = new HmmTimeStep(
+                new TimeStep(new GPXEntry(0.0004, 0.0006, 0)));
         List<QueryResult> result = entry.findCandidateLocations(ghStorage, tmpIndex,
                 EdgeFilter.ALL_EDGES, 15);
         List<Integer> ids = new ArrayList<Integer>();

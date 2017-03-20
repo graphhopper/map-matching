@@ -48,7 +48,8 @@ public class MatchEdge {
      * @param toTime
      */
     public MatchEdge(EdgeIteratorState edge, long fromTime, long toTime) {
-        assert edge != null : "edge should not be null";
+        if (edge == null)
+            throw new NullPointerException("edge should not be null");
         this.edge = edge;
         this.fromTime = fromTime;
         this.toTime = toTime;

@@ -43,14 +43,14 @@ import com.graphhopper.util.EdgeIterator;
 import com.graphhopper.util.EdgeIteratorState;
 
 /**
- * This is a wrapper around an input MatchEntry (which is itself a wrapped around an input
+ * This is a wrapper around an input TimeStep (which is itself a wrapped around an input
  * GPXEntry), which contains additional information to work with the Viterbi algorithm (via
  * hmm-lib). For example, it stores the candidates, emission/transition probabilities, etc.
  * 
  * @author Stefan Holder
  * @author kodonnell
  */
-public class ViterbiMatchEntry {
+public class HmmTimeStep {
 
     /**
      * DistanceCalc used for e.g. detecting how far candidates are from the original point.
@@ -60,7 +60,7 @@ public class ViterbiMatchEntry {
     /**
      * The original MatchEntry (containing the original GPXEntry)
      */
-    public final MatchEntry matchEntry;
+    public final TimeStep matchEntry;
     /**
      * The possible candidates for this entry (i.e. all the 'nearby' nodes/edges).
      */
@@ -93,7 +93,7 @@ public class ViterbiMatchEntry {
      * Create a ViterbiMatchEntry.
      * @param matchEntry the original matchEntry
      */
-    public ViterbiMatchEntry(MatchEntry matchEntry) {
+    public HmmTimeStep(TimeStep matchEntry) {
         assert matchEntry != null;
         this.matchEntry = matchEntry;
     }
@@ -126,7 +126,7 @@ public class ViterbiMatchEntry {
         
         // Doing 2 iterations means searching 9 tiles.
         for (int iteration = 0; iteration < 2; iteration++) {
-            // should we use the return value of earlyFinish?
+            // TODO: should we use the return value of below and finish early?
             index.findNetworkEntries(lat, lon, set, iteration);
 
             final GHBitSet exploredNodes = new GHTBitSet(new GHIntHashSet(set));

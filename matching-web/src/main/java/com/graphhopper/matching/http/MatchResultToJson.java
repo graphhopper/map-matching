@@ -21,7 +21,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import com.graphhopper.matching.MatchEdge;
-import com.graphhopper.matching.MatchEntry;
+import com.graphhopper.matching.TimeStep;
 import com.bmw.hmm.SequenceState;
 import com.graphhopper.matching.Candidate;
 import com.graphhopper.matching.MatchResult;
@@ -83,7 +83,7 @@ public class MatchResultToJson {
         	// add waypoints:
             JSONArray wpts = new JSONArray();
             link.put("wpts", wpts);
-            for (SequenceState<Candidate, MatchEntry, Path> step : matchSequence.matchedSequence) {
+            for (SequenceState<Candidate, TimeStep, Path> step : matchSequence.matchedSequence) {
                 JSONObject wpt = new JSONObject();
                 wpt.put("x", step.state.getQueryResult().getSnappedPoint().lon);
                 wpt.put("y", step.state.getQueryResult().getSnappedPoint().lat);

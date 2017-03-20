@@ -172,15 +172,15 @@ public class MapMatching {
         // TODO: check GPX entries are temporally ordered (or have time == 0 for all)
 
         // map to matchEntries:
-        List<MatchEntry> matchEntries = new ArrayList<MatchEntry>(gpxList.size());
+        List<TimeStep> matchEntries = new ArrayList<TimeStep>(gpxList.size());
         for (GPXEntry gpxEntry : gpxList) {
-            matchEntries.add(new MatchEntry(gpxEntry));
+            matchEntries.add(new TimeStep(gpxEntry));
         }
 
         // create map matching events from the input match entries:
         final EdgeFilter edgeFilter = new DefaultEdgeFilter(
                 algoOptions.getWeighting().getFlagEncoder());
-        List<ViterbiMatchEntry> viterbiMatchEntries = createViterbiMatchEntries(matchEntries,
+        List<HmmTimeStep> viterbiMatchEntries = createViterbiMatchEntries(matchEntries,
                 edgeFilter);
 
         // create the candidates per event:
@@ -191,7 +191,7 @@ public class MapMatching {
         // TODO: refactor this into a separate methods per PR87 discussion
         logger.debug("================= Query results =================");
         int i = 1;
-        for (ViterbiMatchEntry entry : viterbiMatchEntries) {
+        for (HmmTimeStep entry : viterbiMatchEntries) {
             logger.debug("Query results for GPX entry {}", i++);
             for (Candidate candidate : entry.candidates) {
                 QueryResult qr = candidate.getQueryResult();
@@ -206,7 +206,7 @@ public class MapMatching {
 
         logger.debug("=============== Time steps ===============");
         i = 1;
-        for (ViterbiMatchEntry entry : viterbiMatchEntries) {
+        for (HmmTimeStep entry : viterbiMatchEntries) {
             logger.debug("Candidates for time step {}", i++);
             for (Candidate candidate : entry.candidates) {
                 logger.debug(candidate.toString());
@@ -221,7 +221,7 @@ public class MapMatching {
         i = 1;
         for (MatchSequence seq : sequences) {
             int j = 1;
-            for (SequenceState<Candidate, MatchEntry, Path> ss : seq.matchedSequence) {
+            for (SequenceState<Candidate, TimeStep, Path> ss : seq.matchedSequence) {
                 logger.debug("{}-{}: {}, path: {}", i, j, ss.state, ss.transitionDescriptor != null
                         ? ss.transitionDescriptor.calcEdges() : null);
                 j++;
@@ -252,21 +252,21 @@ public class MapMatching {
      * Create map match events from the input GPX entries. This is largely reshaping the data,
      * though it also clusters GPX entries which are too close together into single steps.
      */
-    private List<ViterbiMatchEntry> createViterbiMatchEntries(List<MatchEntry> matchEntries,
+    private List<HmmTimeStep> createViterbiMatchEntries(List<TimeStep> matchEntries,
             EdgeFilter edgeFilter) {
-        final List<ViterbiMatchEntry> viterbiMatchEntries = new ArrayList<ViterbiMatchEntry>();
-        ViterbiMatchEntry lastViterbiMatchEntryAdded = null;
-        MatchEntry prevEntry = null;
+        final List<HmmTimeStep> viterbiMatchEntries = new ArrayList<HmmTimeStep>();
+        HmmTimeStep lastViterbiMatchEntryAdded = null;
+        TimeStep prevEntry = null;
         int last = matchEntries.size() - 1;
         for (int i = 0; i <= last; i++) {
-            MatchEntry matchEntry = matchEntries.get(i);
+            TimeStep matchEntry = matchEntries.get(i);
             // ignore those which are within 2 * measurementErrorSigma of the previous (though never
             // ignore the first/last).
             if (i == 0 || i == last
                     || distanceCalc.calcDist(prevEntry.gpxEntry.getLat(),
                             prevEntry.gpxEntry.getLon(), matchEntry.gpxEntry.getLat(),
                             matchEntry.gpxEntry.getLon()) > 2 * measurementErrorSigma) {
-                lastViterbiMatchEntryAdded = new ViterbiMatchEntry(matchEntry);
+                lastViterbiMatchEntryAdded = new HmmTimeStep(matchEntry);
                 viterbiMatchEntries.add(lastViterbiMatchEntryAdded);
                 prevEntry = matchEntry;
             } else {
@@ -281,7 +281,7 @@ public class MapMatching {
     /**
      * Create candidates per map match event
      */
-    private void calculateCandidatesPerEvent(List<ViterbiMatchEntry> viterbiMatchEntries,
+    private void calculateCandidatesPerEvent(List<HmmTimeStep> viterbiMatchEntries,
             List<QueryResult> allCandidateLocations, QueryGraph queryGraph) {
 
         // first, find all of the *real* candidate locations for each event i.e. the nodes/edges
@@ -289,7 +289,7 @@ public class MapMatching {
         final EdgeFilter edgeFilter = new DefaultEdgeFilter(
                 algoOptions.getWeighting().getFlagEncoder());
         final List<List<QueryResult>> candidateLocationsPerEvent = new ArrayList<List<QueryResult>>();
-        for (ViterbiMatchEntry viterbiMatchEntry : viterbiMatchEntries) {
+        for (HmmTimeStep viterbiMatchEntry : viterbiMatchEntries) {
             // TODO: shouldn't we find those within e.g. 5 * accuracy? Otherwise we're not
             // effectively utilising the sigma distribution for emission probability?
             List<QueryResult> candidateLocations = viterbiMatchEntry.findCandidateLocations(graph,
@@ -336,15 +336,15 @@ public class MapMatching {
      * Note: we only break sequences with 'physical' reasons (e.g. no candidates nearby) and not
      * algorithmic ones (e.g. maxVisitedNodes exceeded) - the latter should throw errors.
      */
-    private List<MatchSequence> computeViterbiSequence(List<ViterbiMatchEntry> viterbiMatchEntries,
+    private List<MatchSequence> computeViterbiSequence(List<HmmTimeStep> viterbiMatchEntries,
             final QueryGraph queryGraph) {
         final HmmProbabilities probabilities = new HmmProbabilities(measurementErrorSigma,
                 transitionProbabilityBeta);
-        ViterbiAlgorithm<Candidate, MatchEntry, Path> viterbi = null;
+        ViterbiAlgorithm<Candidate, TimeStep, Path> viterbi = null;
         final List<MatchSequence> sequences = new ArrayList<MatchSequence>();
-        ViterbiMatchEntry seqprevViterbiMatchEntry = null;
+        HmmTimeStep seqprevViterbiMatchEntry = null;
         int currentSequenceSize = 0;
-        List<ViterbiMatchEntry> currentSequenceviterbiMatchEntries = null;
+        List<HmmTimeStep> currentSequenceviterbiMatchEntries = null;
         int totalSequencesSize = 0;
         ViterbiBreakReason breakReason;
         int n = viterbiMatchEntries.size();
@@ -353,7 +353,7 @@ public class MapMatching {
         for (int viterbiMatchEntryIdx = 0; viterbiMatchEntryIdx < n; viterbiMatchEntryIdx++) {
             // TODO: refactor this into a separate methods per PR87 discussion
             logger.debug("\nPaths to time step {}", viterbiMatchEntryIdx);
-            ViterbiMatchEntry viterbiMatchEntry = viterbiMatchEntries.get(viterbiMatchEntryIdx);
+            HmmTimeStep viterbiMatchEntry = viterbiMatchEntries.get(viterbiMatchEntryIdx);
 
             // always calculate emission probabilities regardless of place in sequence:
             computeEmissionProbabilities(viterbiMatchEntry, probabilities);
@@ -362,7 +362,7 @@ public class MapMatching {
                 // first step of a sequence, so initialise viterbi:
                 assert currentSequenceSize == 0;
                 viterbi = new ViterbiAlgorithm<>();
-                currentSequenceviterbiMatchEntries = new ArrayList<ViterbiMatchEntry>();
+                currentSequenceviterbiMatchEntries = new ArrayList<HmmTimeStep>();
                 viterbi.startWithInitialObservation(viterbiMatchEntry.matchEntry,
                         viterbiMatchEntry.candidates, viterbiMatchEntry.emissionLogProbabilities);
             } else {
@@ -384,7 +384,7 @@ public class MapMatching {
                 } else if (viterbiMatchEntry.transitionLogProbabilities.isEmpty()) {
                     breakReason = ViterbiBreakReason.NO_POSSIBLE_TRANSITIONS;
                 }
-                final List<SequenceState<Candidate, MatchEntry, Path>> viterbiSequence = viterbi
+                final List<SequenceState<Candidate, TimeStep, Path>> viterbiSequence = viterbi
                         .computeMostLikelySequence();
                 // We need to handle two cases separately: single event sequences, and more.
                 if (seqprevViterbiMatchEntry == null) {
@@ -430,7 +430,7 @@ public class MapMatching {
 
         // add the final sequence (if non-empty):
         if (seqprevViterbiMatchEntry != null) {
-            final List<SequenceState<Candidate, MatchEntry, Path>> viterbiSequence = viterbi
+            final List<SequenceState<Candidate, TimeStep, Path>> viterbiSequence = viterbi
                     .computeMostLikelySequence();
             sequences.add(new MatchSequence(viterbiSequence, currentSequenceviterbiMatchEntries,
                     ViterbiBreakReason.LAST_GPX_ENTRY,
@@ -468,7 +468,7 @@ public class MapMatching {
         return contiguousMatchSequences;
     }
 
-    private void computeEmissionProbabilities(ViterbiMatchEntry viterbiMatchEntry,
+    private void computeEmissionProbabilities(HmmTimeStep viterbiMatchEntry,
             HmmProbabilities probabilities) {
         for (Candidate candidate : viterbiMatchEntry.candidates) {
             // road distance difference in meters
@@ -478,8 +478,8 @@ public class MapMatching {
         }
     }
 
-    private void computeTransitionProbabilities(ViterbiMatchEntry prevViterbiMatchEntry,
-            ViterbiMatchEntry viterbiMatchEntry, HmmProbabilities probabilities,
+    private void computeTransitionProbabilities(HmmTimeStep prevViterbiMatchEntry,
+            HmmTimeStep viterbiMatchEntry, HmmProbabilities probabilities,
             QueryGraph queryGraph) {
         final double linearDistance = distanceCalc.calcDist(
                 prevViterbiMatchEntry.matchEntry.gpxEntry.lat,
@@ -562,7 +562,7 @@ public class MapMatching {
     }
 
     private MatchResult computeMatchResult(List<MatchSequence> sequences,
-            List<ViterbiMatchEntry> viterbiMatchEntries, List<MatchEntry> matchEntries,
+            List<HmmTimeStep> viterbiMatchEntries, List<TimeStep> matchEntries,
             List<QueryResult> allCandidateLocations, EdgeExplorer explorer) {
         final Map<String, EdgeIteratorState> virtualEdgesMap = createVirtualEdgesMap(
                 allCandidateLocations, explorer);

@@ -59,15 +59,15 @@ public class MatchSequence {
     /**
      * The matched sequence, as returned from viterbi.computeMostLikelySequence().
      */
-    public final List<SequenceState<Candidate, MatchEntry, Path>> matchedSequence;
+    public final List<SequenceState<Candidate, TimeStep, Path>> matchedSequence;
     /**
      * Time (inclusive, in milliseconds) when first began on this sequence. -1 if not set.
      */
-    private long fromTime = -1;
+    private final long fromTime;
     /**
      * Time (exclusive, in milliseconds) when last was on this sequence. -1 if not set.
      */
-    private long toTime = -1;
+    private final long toTime;
     /**
      * Private variable to track whether or not the match edges have been computed.
      */
@@ -104,8 +104,8 @@ public class MatchSequence {
      * @param viterbiBreakReason
      * @param type
      */
-    public MatchSequence(List<SequenceState<Candidate, MatchEntry, Path>> matchedSequence,
-            List<ViterbiMatchEntry> viterbiMatchEntriess,
+    public MatchSequence(List<SequenceState<Candidate, TimeStep, Path>> matchedSequence,
+            List<HmmTimeStep> viterbiMatchEntriess,
             ViterbiBreakReason viterbiBreakReason, SequenceType type) {
         assert matchedSequence.size() >= 1;
         this.matchedSequence = matchedSequence;
@@ -140,7 +140,7 @@ public class MatchSequence {
         long realFromTime = fromTime;
         long lastEdgeToTime = fromTime;
         for (int j = 1; j < matchedSequence.size(); j++) {
-            SequenceState<Candidate, MatchEntry, Path> matchStep = matchedSequence.get(j);
+            SequenceState<Candidate, TimeStep, Path> matchStep = matchedSequence.get(j);
             Path path = matchedSequence.get(j).transitionDescriptor;
 
             double pathDistance = path.getDistance();

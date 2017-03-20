@@ -35,7 +35,7 @@ public class MatchResult {
     /**
      * The original GPX entries (wrapped in MatchEntry's to include matching information).
      */
-    public final List<MatchEntry> matchEntries;
+    public final List<TimeStep> matchEntries;
     /**
      * The sequences that make up the match result.
      */
@@ -70,7 +70,7 @@ public class MatchResult {
      * @param matchEntries
      * @param sequences
      */
-    public MatchResult(List<MatchEntry> matchEntries, List<MatchSequence> sequences) {
+    public MatchResult(List<TimeStep> matchEntries, List<MatchSequence> sequences) {
         this.matchEntries = matchEntries;
         this.sequences = sequences;
     }
@@ -104,7 +104,7 @@ public class MatchResult {
         gpxEntriesDistance = 0;
         GPXEntry lastGPXEntry = null;
         boolean first = true;
-        for (MatchEntry matchEntry: matchEntries) {
+        for (TimeStep matchEntry: matchEntries) {
             if (first) {
                 first = false;
             } else {

@@ -22,12 +22,12 @@ import com.graphhopper.util.GPXEntry;
 import com.graphhopper.util.shapes.GHPoint3D;
 
 /**
- * A MatchEntry is a thin wrapper use to store a) the original GPX entry, and b) any additional
+ * A TimeStep is a thin wrapper use to store a) the original GPX entry, and b) any additional
  * information from the map-matching (e.g. where this GPX entry was actually mapped to, etc.)
  * 
  * @author kodonnell
  */
-public class MatchEntry {
+public class TimeStep {
     /**
      * Describe how the state of this match in the matching process.
      */
@@ -76,7 +76,7 @@ public class MatchEntry {
      * 
      * @param gpxEntry
      */
-    public MatchEntry(GPXEntry gpxEntry) {
+    public TimeStep(GPXEntry gpxEntry) {
         this.gpxEntry = gpxEntry;
     }
 
