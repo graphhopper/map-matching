@@ -18,17 +18,11 @@ package com.graphhopper.matching;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import com.bmw.hmm.Transition;
-import com.carrotsearch.hppc.procedures.IntProcedure;
-import com.graphhopper.coll.GHBitSet;
-import com.graphhopper.coll.GHIntHashSet;
-import com.graphhopper.coll.GHTBitSet;
 import com.graphhopper.routing.Path;
 import com.graphhopper.routing.QueryGraph;
 import com.graphhopper.routing.VirtualEdgeIteratorState;
@@ -38,9 +32,7 @@ import com.graphhopper.storage.index.LocationIndexTree;
 import com.graphhopper.storage.index.QueryResult;
 import com.graphhopper.util.DistanceCalc;
 import com.graphhopper.util.DistancePlaneProjection;
-import com.graphhopper.util.EdgeExplorer;
 import com.graphhopper.util.EdgeIterator;
-import com.graphhopper.util.EdgeIteratorState;
 
 /**
  * This is a wrapper around an input TimeStep (which is itself a wrapped around an input
@@ -79,15 +71,6 @@ public class HmmTimeStep {
      * each of this entry's candidates).
      */
     public final Map<Transition<Candidate>, Path> roadPaths = new HashMap<>();
-    /**
-     * Comparator so we can order candidates by how close they are.
-     */
-    private static final Comparator<QueryResult> QR_COMPARATOR = new Comparator<QueryResult>() {
-        @Override
-        public int compare(QueryResult o1, QueryResult o2) {
-            return Double.compare(o1.getQueryDistance(), o2.getQueryDistance());
-        }
-    };
 
     /**
      * Create a TimeStep.
@@ -100,12 +83,7 @@ public class HmmTimeStep {
     }
     
     /**
-     * Find all (real) edges/nodes locations which are within the provided search radius. Note that
-     * this searches at most 9 index cells to avoid performance problems, and hence if the radius is
-     * larger than the cell width then not all edges might be returned.
-     * 
-     * TODO: throw an error if searchRadiusMeters > index.getMinResolutionInMeter() as not all edges
-     * may be found.
+     * Find all possible candidate locations for this TimeStep.
      * 
      * @param graph the base graph to search
      * @param index the base location index to search
@@ -116,104 +94,7 @@ public class HmmTimeStep {
     public List<QueryResult> findCandidateLocations(final Graph graph,
             final LocationIndexTree index, final EdgeFilter edgeFilter,
             double searchRadiusMeters) {
-
-        final double lat = timeStep.gpxEntry.lat;
-        final double lon = timeStep.gpxEntry.lon;
-        final double returnAllResultsWithin = distCalc.calcNormalizedDist(searchRadiusMeters);
-
-        // implement a cheap priority queue via List, sublist and Collections.sort
-        final List<QueryResult> candidateLocations = new ArrayList<QueryResult>();
-        GHIntHashSet set = new GHIntHashSet();
-        
-        // Doing 2 iterations means searching 9 tiles.
-        for (int iteration = 0; iteration < 2; iteration++) {
-            // TODO: should we use the return value of below and finish early?
-            index.findNetworkEntries(lat, lon, set, iteration);
-
-            final GHBitSet exploredNodes = new GHTBitSet(new GHIntHashSet(set));
-            final EdgeExplorer explorer = graph.createEdgeExplorer(edgeFilter);
-
-            set.forEach(new IntProcedure() {
-
-                @Override
-                public void apply(int node) {
-                    index.new XFirstSearchCheck(lat, lon, exploredNodes, edgeFilter) {
-                        @Override
-                        protected double getQueryDistance() {
-                            // do not skip search if distance is 0 or near zero (equalNormedDelta)
-                            return Double.MAX_VALUE;
-                        }
-
-                        @Override
-                        protected boolean check(int node, double normedDist, int wayIndex,
-                                EdgeIteratorState edge, QueryResult.Position pos) {
-                            // TODO: refactor below:
-                            //   - should only add edges within search radius (below allows the
-                            //     returning of a candidate outside search radius if it's the only
-                            //     one. Removing this test would simplify it a lot.
-                            //   - create QueryResult first and the add/set as required - clean up
-                            //     the index tracking business.
-                            if (normedDist < returnAllResultsWithin
-                                    || candidateLocations.isEmpty()
-                                    || candidateLocations.get(0).getQueryDistance() > normedDist) {
-
-                                int index = -1;
-                                for (int qrIndex = 0; qrIndex < candidateLocations.size();
-                                        qrIndex++) {
-                                    QueryResult qr = candidateLocations.get(qrIndex);
-                                    // overwrite older queryResults which are potentially further
-                                    // away than returnAllResultsWithin
-                                    if (qr.getQueryDistance() > returnAllResultsWithin) {
-                                        index = qrIndex;
-                                        break;
-                                    }
-
-                                    // avoid duplicate edges
-                                    if (qr.getClosestEdge().getEdge() == edge.getEdge()) {
-                                        if (qr.getQueryDistance() < normedDist) {
-                                            // do not add current edge
-                                            return true;
-                                        } else {
-                                            // overwrite old edge with current
-                                            index = qrIndex;
-                                            break;
-                                        }
-                                    }
-                                }
-
-                                QueryResult qr = new QueryResult(lat, lon);
-                                qr.setQueryDistance(normedDist);
-                                qr.setClosestNode(node);
-                                qr.setClosestEdge(edge.detach(false));
-                                qr.setWayIndex(wayIndex);
-                                qr.setSnappedPosition(pos);
-
-                                if (index < 0) {
-                                    candidateLocations.add(qr);
-                                } else {
-                                    candidateLocations.set(index, qr);
-                                }
-                            }
-                            return true;
-                        }
-                    }.start(explorer, node);                    
-                }
-            });
-        }
-
-        Collections.sort(candidateLocations, QR_COMPARATOR);
-
-        for (QueryResult qr : candidateLocations) {
-            if (qr.isValid()) {
-                // denormalize distance
-                qr.setQueryDistance(distCalc.calcDenormalizedDist(qr.getQueryDistance()));
-                qr.calcSnappedPoint(distCalc);
-            } else {
-                throw new IllegalStateException("Invalid QueryResult should not happen here: " + qr);
-            }
-        }
-        
-        return candidateLocations;
+        return index.findWithinRadius(timeStep.gpxEntry.lat, timeStep.gpxEntry.lon, edgeFilter, searchRadiusMeters, 2);
     }
     
     /**
