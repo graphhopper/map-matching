@@ -107,7 +107,12 @@ public class MatchSequence {
     public MatchSequence(List<SequenceState<Candidate, TimeStep, Path>> matchedSequence,
             List<HmmTimeStep> viterbiMatchEntriess,
             ViterbiBreakReason viterbiBreakReason, SequenceType type) {
-        assert matchedSequence.size() >= 1;
+        if (matchedSequence.size() < 1)
+            throw new IllegalArgumentException(
+                    "cannot create a MatchSequence from an empty matchedSequence");
+        if (viterbiMatchEntriess.size() != matchedSequence.size())
+            throw new IllegalArgumentException(
+                    "matchedSequence and viterbiMatchEntries must be the same size");
         this.matchedSequence = matchedSequence;
         this.viterbiBreakReason = viterbiBreakReason;
         this.type = type;
@@ -115,7 +120,6 @@ public class MatchSequence {
         this.fromTime = matchedSequence.get(0).observation.gpxEntry.getTime();
         this.toTime = matchedSequence.get(matchedSequence.size() - 1).observation.gpxEntry.getTime();
         
-        assert viterbiMatchEntriess.size() == matchedSequence.size();
     }
     
     /**

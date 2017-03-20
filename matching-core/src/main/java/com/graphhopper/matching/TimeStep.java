@@ -67,12 +67,12 @@ public class TimeStep {
      */
     private int sequenceIdx;
     /**
-     * The index of the corresponding ViterbiMatchEntry in this sequence.
+     * The index of the corresponding TimeStep in this sequence.
      */
     private int sequenceMatchEdgeIdx;
 
     /**
-     * Create a MatchEntry from a GPXEntry, to be used in map-matching.
+     * Create a TimeStep from a GPXEntry, to be used in map-matching.
      * 
      * @param gpxEntry
      */

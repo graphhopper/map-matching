@@ -58,9 +58,9 @@ public class HmmTimeStep {
      */
     private static DistanceCalc distCalc = new DistancePlaneProjection();
     /**
-     * The original MatchEntry (containing the original GPXEntry)
+     * The original TimeStep (containing the original GPXEntry)
      */
-    public final TimeStep matchEntry;
+    public final TimeStep timeStep;
     /**
      * The possible candidates for this entry (i.e. all the 'nearby' nodes/edges).
      */
@@ -90,12 +90,13 @@ public class HmmTimeStep {
     };
 
     /**
-     * Create a ViterbiMatchEntry.
-     * @param matchEntry the original matchEntry
+     * Create a TimeStep.
+     * @param timeStep the original timeStep
      */
-    public HmmTimeStep(TimeStep matchEntry) {
-        assert matchEntry != null;
-        this.matchEntry = matchEntry;
+    public HmmTimeStep(TimeStep timeStep) {
+        if (timeStep == null)
+            throw new NullPointerException("timeStep shouldn't be null");
+        this.timeStep = timeStep;
     }
     
     /**
@@ -116,8 +117,8 @@ public class HmmTimeStep {
             final LocationIndexTree index, final EdgeFilter edgeFilter,
             double searchRadiusMeters) {
 
-        final double lat = matchEntry.gpxEntry.lat;
-        final double lon = matchEntry.gpxEntry.lon;
+        final double lat = timeStep.gpxEntry.lat;
+        final double lon = timeStep.gpxEntry.lon;
         final double returnAllResultsWithin = distCalc.calcNormalizedDist(searchRadiusMeters);
 
         // implement a cheap priority queue via List, sublist and Collections.sort
@@ -268,13 +269,13 @@ public class HmmTimeStep {
                     vqr.setSnappedPosition(qr.getSnappedPosition());
                     vqr.setClosestEdge(qr.getClosestEdge());
                     vqr.calcSnappedPoint(distCalc);
-                    Candidate candidate = new Candidate(matchEntry.gpxEntry, vqr, incomingVirtualEdge,
+                    Candidate candidate = new Candidate(timeStep.gpxEntry, vqr, incomingVirtualEdge,
                             outgoingVirtualEdge);
                     candidates.add(candidate);
                 }
             } else {
                 // Create an undirected candidate for the real node.
-                Candidate candidate = new Candidate(matchEntry.gpxEntry, qr);
+                Candidate candidate = new Candidate(timeStep.gpxEntry, qr);
                 candidates.add(candidate);
             }
         }

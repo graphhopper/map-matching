@@ -33,9 +33,9 @@ import com.graphhopper.util.GPXEntry;
 public class MatchResult {
 
     /**
-     * The original GPX entries (wrapped in MatchEntry's to include matching information).
+     * The original GPX entries (wrapped in TimeStep's to include matching information).
      */
-    public final List<TimeStep> matchEntries;
+    public final List<TimeStep> timeSteps;
     /**
      * The sequences that make up the match result.
      */
@@ -67,11 +67,11 @@ public class MatchResult {
     /**
      * Create a match result.
      * 
-     * @param matchEntries
+     * @param timeSteps
      * @param sequences
      */
-    public MatchResult(List<TimeStep> matchEntries, List<MatchSequence> sequences) {
-        this.matchEntries = matchEntries;
+    public MatchResult(List<TimeStep> timeSteps, List<MatchSequence> sequences) {
+        this.timeSteps = timeSteps;
         this.sequences = sequences;
     }
     
@@ -104,20 +104,20 @@ public class MatchResult {
         gpxEntriesDistance = 0;
         GPXEntry lastGPXEntry = null;
         boolean first = true;
-        for (TimeStep matchEntry: matchEntries) {
+        for (TimeStep timeStep: timeSteps) {
             if (first) {
                 first = false;
             } else {
                 // NOTE: could allow user to calculate GPX stats using only those GPX points
-                // used for matching, i.e. matchEntry.getMatchState() == MatchState.MATCHED
+                // used for matching, i.e. timeStep.getMatchState() == MatchState.MATCHED
                 gpxEntriesDistance += distCalc.calcDist(lastGPXEntry.lat, lastGPXEntry.lon,
-                        matchEntry.gpxEntry.lat, matchEntry.gpxEntry.lon);
+                        timeStep.gpxEntry.lat, timeStep.gpxEntry.lon);
             }
-            lastGPXEntry = matchEntry.gpxEntry;
+            lastGPXEntry = timeStep.gpxEntry;
         }
         // NOTE: assumes events temporally ordered!
-        gpxEntriesDuration = matchEntries.get(matchEntries.size() - 1).gpxEntry.getTime()
-                - matchEntries.get(0).gpxEntry.getTime();
+        gpxEntriesDuration = timeSteps.get(timeSteps.size() - 1).gpxEntry.getTime()
+                - timeSteps.get(0).gpxEntry.getTime();
     }
 
     public List<MatchEdge> getEdgeMatches() {

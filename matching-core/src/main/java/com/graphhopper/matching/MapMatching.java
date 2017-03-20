@@ -255,22 +255,22 @@ public class MapMatching {
     private List<HmmTimeStep> createViterbiMatchEntries(List<TimeStep> matchEntries,
             EdgeFilter edgeFilter) {
         final List<HmmTimeStep> viterbiMatchEntries = new ArrayList<HmmTimeStep>();
-        HmmTimeStep lastViterbiMatchEntryAdded = null;
+        HmmTimeStep lastTimeStepAdded = null;
         TimeStep prevEntry = null;
         int last = matchEntries.size() - 1;
         for (int i = 0; i <= last; i++) {
-            TimeStep matchEntry = matchEntries.get(i);
+            TimeStep timeStep = matchEntries.get(i);
             // ignore those which are within 2 * measurementErrorSigma of the previous (though never
             // ignore the first/last).
             if (i == 0 || i == last
                     || distanceCalc.calcDist(prevEntry.gpxEntry.getLat(),
-                            prevEntry.gpxEntry.getLon(), matchEntry.gpxEntry.getLat(),
-                            matchEntry.gpxEntry.getLon()) > 2 * measurementErrorSigma) {
-                lastViterbiMatchEntryAdded = new HmmTimeStep(matchEntry);
-                viterbiMatchEntries.add(lastViterbiMatchEntryAdded);
-                prevEntry = matchEntry;
+                            prevEntry.gpxEntry.getLon(), timeStep.gpxEntry.getLat(),
+                            timeStep.gpxEntry.getLon()) > 2 * measurementErrorSigma) {
+                lastTimeStepAdded = new HmmTimeStep(timeStep);
+                viterbiMatchEntries.add(lastTimeStepAdded);
+                prevEntry = timeStep;
             } else {
-                matchEntry.markAsNotUsedForMatching();
+                timeStep.markAsNotUsedForMatching();
                 // TODO: refactor this into a separate methods per PR87 discussion
                 logger.debug("Filter out GPX entry: {}", i + 1);
             }
@@ -289,10 +289,10 @@ public class MapMatching {
         final EdgeFilter edgeFilter = new DefaultEdgeFilter(
                 algoOptions.getWeighting().getFlagEncoder());
         final List<List<QueryResult>> candidateLocationsPerEvent = new ArrayList<List<QueryResult>>();
-        for (HmmTimeStep viterbiMatchEntry : viterbiMatchEntries) {
+        for (HmmTimeStep hmmTimeStep : viterbiMatchEntries) {
             // TODO: shouldn't we find those within e.g. 5 * accuracy? Otherwise we're not
             // effectively utilising the sigma distribution for emission probability?
-            List<QueryResult> candidateLocations = viterbiMatchEntry.findCandidateLocations(graph,
+            List<QueryResult> candidateLocations = hmmTimeStep.findCandidateLocations(graph,
                     locationIndex, edgeFilter, measurementErrorSigma);
             allCandidateLocations.addAll(candidateLocations);
             candidateLocationsPerEvent.add(candidateLocations);
@@ -320,7 +320,7 @@ public class MapMatching {
             dedupedCandidateLocationsPerEvent.add(dedupedCandidateLocations.values());
         }
 
-        // create the final candidate and viterbiMatchEntry per event:
+        // create the final candidate and hmmTimeStep per event:
         for (int i = 0; i < viterbiMatchEntries.size(); i++) {
             viterbiMatchEntries.get(i).createCandidates(dedupedCandidateLocationsPerEvent.get(i),
                     queryGraph);
@@ -329,9 +329,9 @@ public class MapMatching {
 
     /**
      * Run the viterbi algorithm on our HMM model. Note that viterbi breaks can occur (e.g. if no
-     * candidates are found for a given viterbiMatchEntry), and we handle these by returning a list
+     * candidates are found for a given hmmTimeStep), and we handle these by returning a list
      * of complete sequences (each of which is unbroken). It is possible that a sequence contains
-     * only a single viterbiMatchEntry.
+     * only a single hmmTimeStep.
      * 
      * Note: we only break sequences with 'physical' reasons (e.g. no candidates nearby) and not
      * algorithmic ones (e.g. maxVisitedNodes exceeded) - the latter should throw errors.
@@ -342,7 +342,7 @@ public class MapMatching {
                 transitionProbabilityBeta);
         ViterbiAlgorithm<Candidate, TimeStep, Path> viterbi = null;
         final List<MatchSequence> sequences = new ArrayList<MatchSequence>();
-        HmmTimeStep seqprevViterbiMatchEntry = null;
+        HmmTimeStep seqprevTimeStep = null;
         int currentSequenceSize = 0;
         List<HmmTimeStep> currentSequenceviterbiMatchEntries = null;
         int totalSequencesSize = 0;
@@ -350,44 +350,44 @@ public class MapMatching {
         int n = viterbiMatchEntries.size();
         // TODO: refactor this into a separate methods per PR87 discussion
         logger.debug("\n=============== Paths ===============");
-        for (int viterbiMatchEntryIdx = 0; viterbiMatchEntryIdx < n; viterbiMatchEntryIdx++) {
+        for (int hmmTimeStepIdx = 0; hmmTimeStepIdx < n; hmmTimeStepIdx++) {
             // TODO: refactor this into a separate methods per PR87 discussion
-            logger.debug("\nPaths to time step {}", viterbiMatchEntryIdx);
-            HmmTimeStep viterbiMatchEntry = viterbiMatchEntries.get(viterbiMatchEntryIdx);
+            logger.debug("\nPaths to time step {}", hmmTimeStepIdx);
+            HmmTimeStep hmmTimeStep = viterbiMatchEntries.get(hmmTimeStepIdx);
 
             // always calculate emission probabilities regardless of place in sequence:
-            computeEmissionProbabilities(viterbiMatchEntry, probabilities);
+            computeEmissionProbabilities(hmmTimeStep, probabilities);
 
-            if (seqprevViterbiMatchEntry == null) {
+            if (seqprevTimeStep == null) {
                 // first step of a sequence, so initialise viterbi:
                 assert currentSequenceSize == 0;
                 viterbi = new ViterbiAlgorithm<>();
                 currentSequenceviterbiMatchEntries = new ArrayList<HmmTimeStep>();
-                viterbi.startWithInitialObservation(viterbiMatchEntry.matchEntry,
-                        viterbiMatchEntry.candidates, viterbiMatchEntry.emissionLogProbabilities);
+                viterbi.startWithInitialObservation(hmmTimeStep.timeStep,
+                        hmmTimeStep.candidates, hmmTimeStep.emissionLogProbabilities);
             } else {
                 // add this step to current sequence:
                 assert currentSequenceSize > 0;
-                computeTransitionProbabilities(seqprevViterbiMatchEntry, viterbiMatchEntry,
+                computeTransitionProbabilities(seqprevTimeStep, hmmTimeStep,
                         probabilities, queryGraph);
-                viterbi.nextStep(viterbiMatchEntry.matchEntry, viterbiMatchEntry.candidates,
-                        viterbiMatchEntry.emissionLogProbabilities,
-                        viterbiMatchEntry.transitionLogProbabilities, viterbiMatchEntry.roadPaths);
+                viterbi.nextStep(hmmTimeStep.timeStep, hmmTimeStep.candidates,
+                        hmmTimeStep.emissionLogProbabilities,
+                        hmmTimeStep.transitionLogProbabilities, hmmTimeStep.roadPaths);
             }
 
             // if sequence is broken, then extract the sequence and reset for a new sequence:
             if (viterbi.isBroken()) {
                 // try to guess the break reason:
                 breakReason = ViterbiBreakReason.UNKNOWN;
-                if (viterbiMatchEntry.candidates.isEmpty()) {
+                if (hmmTimeStep.candidates.isEmpty()) {
                     breakReason = ViterbiBreakReason.NO_CANDIDATES;
-                } else if (viterbiMatchEntry.transitionLogProbabilities.isEmpty()) {
+                } else if (hmmTimeStep.transitionLogProbabilities.isEmpty()) {
                     breakReason = ViterbiBreakReason.NO_POSSIBLE_TRANSITIONS;
                 }
                 final List<SequenceState<Candidate, TimeStep, Path>> viterbiSequence = viterbi
                         .computeMostLikelySequence();
                 // We need to handle two cases separately: single event sequences, and more.
-                if (seqprevViterbiMatchEntry == null) {
+                if (seqprevTimeStep == null) {
                     // OK, we had a break immediately after initialising. In this case, we simply
                     // add the single breaking event as a new (stationary) MapMatchSequence: We rely
                     // on the fact that the viterbi.computeMostLikelySequence will include this
@@ -398,38 +398,38 @@ public class MapMatching {
                                     breakReason, SequenceType.STATIONARY));
                 } else {
                     // OK, we had a break sometime after initialisation. In this case, we need to
-                    // add the sequence *excluding* the current viterbiMatchEntry (that broke it)
-                    // and start a new sequence with the breaking viterbiMatchEntry. We rely on the
+                    // add the sequence *excluding* the current hmmTimeStep (that broke it)
+                    // and start a new sequence with the breaking hmmTimeStep. We rely on the
                     // fact that viterbi.computeMostLikelySequence will *not* include the breaking
-                    // viterbiMatchEntry.
+                    // hmmTimeStep.
                     assert viterbiSequence.size() >= 1;
                     sequences.add(
                             new MatchSequence(viterbiSequence, currentSequenceviterbiMatchEntries,
                                     breakReason, viterbiSequence.size() == 1
                                             ? SequenceType.STATIONARY : SequenceType.SEQUENCE));
-                    // To start a new sequence with this (breaking) viterbiMatchEntry, we decrement
-                    // the loop counter so that this viterbiMatchEntry is repeated again in the next
+                    // To start a new sequence with this (breaking) hmmTimeStep, we decrement
+                    // the loop counter so that this hmmTimeStep is repeated again in the next
                     // loop - though then it should be treated as a start of a sequence (not partway
                     // through one)
-                    viterbiMatchEntryIdx--;
+                    hmmTimeStepIdx--;
                 }
 
                 // In all cases, the sequence broke, so reset sequence
                 // variables:
-                seqprevViterbiMatchEntry = null;
+                seqprevTimeStep = null;
                 currentSequenceSize = 0;
                 // record saved count for check at the end:
                 totalSequencesSize += viterbiSequence.size();
             } else {
                 // no breaks, so update the sequence variables:
                 currentSequenceSize += 1;
-                seqprevViterbiMatchEntry = viterbiMatchEntry;
-                currentSequenceviterbiMatchEntries.add(viterbiMatchEntry);
+                seqprevTimeStep = hmmTimeStep;
+                currentSequenceviterbiMatchEntries.add(hmmTimeStep);
             }
         }
 
         // add the final sequence (if non-empty):
-        if (seqprevViterbiMatchEntry != null) {
+        if (seqprevTimeStep != null) {
             final List<SequenceState<Candidate, TimeStep, Path>> viterbiSequence = viterbi
                     .computeMostLikelySequence();
             sequences.add(new MatchSequence(viterbiSequence, currentSequenceviterbiMatchEntries,
@@ -468,27 +468,27 @@ public class MapMatching {
         return contiguousMatchSequences;
     }
 
-    private void computeEmissionProbabilities(HmmTimeStep viterbiMatchEntry,
+    private void computeEmissionProbabilities(HmmTimeStep hmmTimeStep,
             HmmProbabilities probabilities) {
-        for (Candidate candidate : viterbiMatchEntry.candidates) {
+        for (Candidate candidate : hmmTimeStep.candidates) {
             // road distance difference in meters
             final double distance = candidate.getQueryResult().getQueryDistance();
-            viterbiMatchEntry.addEmissionLogProbability(candidate,
+            hmmTimeStep.addEmissionLogProbability(candidate,
                     probabilities.emissionLogProbability(distance));
         }
     }
 
-    private void computeTransitionProbabilities(HmmTimeStep prevViterbiMatchEntry,
-            HmmTimeStep viterbiMatchEntry, HmmProbabilities probabilities,
+    private void computeTransitionProbabilities(HmmTimeStep prevTimeStep,
+            HmmTimeStep hmmTimeStep, HmmProbabilities probabilities,
             QueryGraph queryGraph) {
         final double linearDistance = distanceCalc.calcDist(
-                prevViterbiMatchEntry.matchEntry.gpxEntry.lat,
-                prevViterbiMatchEntry.matchEntry.gpxEntry.lon,
-                viterbiMatchEntry.matchEntry.gpxEntry.lat,
-                viterbiMatchEntry.matchEntry.gpxEntry.lon);
+                prevTimeStep.timeStep.gpxEntry.lat,
+                prevTimeStep.timeStep.gpxEntry.lon,
+                hmmTimeStep.timeStep.gpxEntry.lat,
+                hmmTimeStep.timeStep.gpxEntry.lon);
 
-        for (Candidate from : prevViterbiMatchEntry.candidates) {
-            for (Candidate to : viterbiMatchEntry.candidates) {
+        for (Candidate from : prevTimeStep.candidates) {
+            for (Candidate to : hmmTimeStep.candidates) {
                 // enforce heading if required:
                 if (from.isDirected()) {
                     // Make sure that the path starting at the "from" candidate goes through the
@@ -510,7 +510,7 @@ public class MapMatching {
                         to.getQueryResult().getClosestNode());
 
                 if (path.isFound()) {
-                    viterbiMatchEntry.addRoadPath(from, to, path);
+                    hmmTimeStep.addRoadPath(from, to, path);
 
                     // The router considers unfavored virtual edges using edge penalties but this is
                     // not reflected in the path distance. Hence, we need to adjust the path
@@ -521,7 +521,7 @@ public class MapMatching {
                             penalizedPathDistance);
                     final double transitionLogProbability = probabilities
                             .transitionLogProbability(penalizedPathDistance, linearDistance);
-                    viterbiMatchEntry.addTransitionLogProbability(from, to,
+                    hmmTimeStep.addTransitionLogProbability(from, to,
                             transitionLogProbability);
                 } else {
                     // TODO: refactor this into a separate methods per PR87 discussion
