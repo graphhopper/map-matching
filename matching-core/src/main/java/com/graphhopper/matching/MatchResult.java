@@ -62,7 +62,7 @@ public class MatchResult {
     /**
      * A list of all of the match edges (just a union of those for each sequence).
      */
-    private List<MatchEdge> matchEdges = null;
+    private List<MatchedEdge> matchEdges = null;
     
     /**
      * Create a match result.
@@ -82,7 +82,7 @@ public class MatchResult {
      * @param nodeCount number of nodes in the base graph (so we can detect virtual nodes)
      */
     public void computeMatcheEdges(Map<String, EdgeIteratorState> virtualEdgesMap, int nodeCount) {
-        matchEdges = new ArrayList<MatchEdge>();
+        matchEdges = new ArrayList<MatchedEdge>();
         matchDistance = 0;
         matchDuration = 0;
         for (MatchSequence sequence: sequences) {
@@ -120,7 +120,7 @@ public class MatchResult {
                 - timeSteps.get(0).gpxEntry.getTime();
     }
 
-    public List<MatchEdge> getEdgeMatches() {
+    public List<MatchedEdge> getEdgeMatches() {
         return matchEdges;
     }
 

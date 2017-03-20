@@ -25,7 +25,7 @@ import org.json.JSONObject;
 import org.junit.Assert;
 import org.junit.Test;
 
-import com.graphhopper.matching.MatchEdge;
+import com.graphhopper.matching.MatchedEdge;
 import com.graphhopper.matching.Candidate;
 import com.graphhopper.matching.MatchResult;
 import com.graphhopper.routing.VirtualEdgeIteratorState;

@@ -109,7 +109,7 @@ public class MapMatchingTest {
 
         // make sure no virtual edges are returned
         int edgeCount = hopper.getGraphHopperStorage().getAllEdges().getMaxId();
-        for (MatchEdge em : mr.getEdgeMatches()) {
+        for (MatchedEdge em : mr.getEdgeMatches()) {
             assertTrue("result contains virtual edges:" + em.edge.toString(),
                     em.edge.getEdge() < edgeCount);
         }
@@ -321,11 +321,11 @@ public class MapMatchingTest {
                 fetchStreets(mr.getEdgeMatches()));
     }
 
-    static List<String> fetchStreets(List<MatchEdge> emList) {
+    static List<String> fetchStreets(List<MatchedEdge> emList) {
         List<String> list = new ArrayList<String>();
         int prevNode = -1;
         List<String> errors = new ArrayList<String>();
-        for (MatchEdge em : emList) {
+        for (MatchedEdge em : emList) {
             String str = em.edge.getName();
             list.add(str);
             if (prevNode >= 0) {

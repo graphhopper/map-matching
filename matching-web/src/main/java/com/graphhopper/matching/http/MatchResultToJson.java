@@ -20,7 +20,7 @@ package com.graphhopper.matching.http;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import com.graphhopper.matching.MatchEdge;
+import com.graphhopper.matching.MatchedEdge;
 import com.graphhopper.matching.TimeStep;
 import com.bmw.hmm.SequenceState;
 import com.graphhopper.matching.Candidate;
@@ -62,7 +62,7 @@ public class MatchResultToJson {
     		
         	// add sequence geometry
         	int emIndex = 0;
-        	for (MatchEdge matchEdge: matchSequence.matchEdges) {
+        	for (MatchedEdge matchEdge: matchSequence.matchEdges) {
                 JSONObject geometry = new JSONObject();
                 PointList pointList = matchEdge.edge.fetchWayGeometry(emIndex == 0 ? 3 : 2);
 

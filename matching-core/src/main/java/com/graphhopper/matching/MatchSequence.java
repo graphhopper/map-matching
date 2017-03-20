@@ -58,8 +58,9 @@ public class MatchSequence {
     public final SequenceType type;
     /**
      * The matched sequence, as returned from viterbi.computeMostLikelySequence().
+     * TODO: make this private once it's not needed in MapMatching.java
      */
-    public final List<SequenceState<Candidate, TimeStep, Path>> matchedSequence;
+    final List<SequenceState<Candidate, TimeStep, Path>> matchedSequence;
     /**
      * Time (inclusive, in milliseconds) when first began on this sequence. -1 if not set.
      */
@@ -75,7 +76,7 @@ public class MatchSequence {
     /**
      * List of edges that make up this sequence. Null until computeMatchEdges is called.
      */
-    public List<MatchEdge> matchEdges;
+    public List<MatchedEdge> matchEdges;
     /**
      * The length (meters) of the *matched* path that makes up this sequence.
      */
@@ -132,7 +133,7 @@ public class MatchSequence {
         
         matchDistance = 0.0;
         matchDuration = 0;
-        matchEdges = new ArrayList<MatchEdge>();
+        matchEdges = new ArrayList<MatchedEdge>();
 
         // if it's a stationary/unknown sequence, there are no edges:
         // TODO: should we add the single edge in the case of a stationary sequence?
@@ -175,7 +176,7 @@ public class MatchSequence {
                     directedRealEdge = resolveToRealEdge(virtualEdgesMap, edgeIteratorState,
                             nodeCount);
                     if (lastEdgeAdded == null || !equalEdges(directedRealEdge, lastEdgeAdded)) {
-                        matchEdges.add(new MatchEdge(directedRealEdge, lastEdgeToTime, edgeToTime));
+                        matchEdges.add(new MatchedEdge(directedRealEdge, lastEdgeToTime, edgeToTime));
                         lastEdgeToTime = edgeToTime;
                         lastEdgeAdded = directedRealEdge;
                     }
@@ -301,7 +302,7 @@ public class MatchSequence {
         if (!matchEdges.isEmpty()) {
             int prevEdge = EdgeIterator.NO_EDGE;
             p.setFromNode(matchEdges.get(0).edge.getBaseNode());
-            for (MatchEdge em : matchEdges) {
+            for (MatchedEdge em : matchEdges) {
                 p.processEdge(em.edge.getEdge(), em.edge.getAdjNode(), prevEdge);
                 prevEdge = em.edge.getEdge();
             }

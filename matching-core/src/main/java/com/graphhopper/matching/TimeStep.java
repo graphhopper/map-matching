@@ -84,7 +84,7 @@ public class TimeStep {
      * Flag this entry as not to be used for map-matching which can e.g. happen if there is more
      * points in a given area than the resolution needed by the Viterbi algorithm.
      */
-    protected void markAsNotUsedForMatching() {
+    void markAsNotUsedForMatching() {
         assert !stateSet;
         this.matchState = MatchState.NOT_USED_FOR_MATCHING;
         stateSet = true;
@@ -99,7 +99,7 @@ public class TimeStep {
      * @param distanceAlongRealEdge
      * @param snappedPoint
      */
-    protected void saveMatchingState(int sequenceIdx, int sequenceMatchEdgeIdx,
+    void saveMatchingState(int sequenceIdx, int sequenceMatchEdgeIdx,
             EdgeIteratorState directedRealEdge, double distanceAlongRealEdge,
             GHPoint3D snappedPoint) {
         assert !stateSet;

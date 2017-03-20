@@ -241,7 +241,7 @@ public class MapMatching {
         // TODO: refactor this into a separate methods per PR87 discussion
         logger.debug("=============== Matched real edges =============== ");
         i = 1;
-        for (MatchEdge em : matchResult.getEdgeMatches()) {
+        for (MatchedEdge em : matchResult.getEdgeMatches()) {
             logger.debug("{}: {}", i, em.edge);
             i++;
         }
@@ -655,7 +655,7 @@ public class MapMatching {
         if (!matchSequence.matchEdges.isEmpty()) {
             int prevEdge = EdgeIterator.NO_EDGE;
             p.setFromNode(matchSequence.matchEdges.get(0).edge.getBaseNode());
-            for (MatchEdge em : matchSequence.matchEdges) {
+            for (MatchedEdge em : matchSequence.matchEdges) {
                 p.processEdge(em.edge.getEdge(), em.edge.getAdjNode(), prevEdge);
                 prevEdge = em.edge.getEdge();
             }

@@ -25,7 +25,7 @@ import com.graphhopper.util.EdgeIteratorState;
  * 
  * @author kodonnell
  */
-public class MatchEdge {
+public class MatchedEdge {
 
     /**
      * The actual (GraphHopper) edge.
@@ -47,7 +47,7 @@ public class MatchEdge {
      * @param fromTime
      * @param toTime
      */
-    public MatchEdge(EdgeIteratorState edge, long fromTime, long toTime) {
+    public MatchedEdge(EdgeIteratorState edge, long fromTime, long toTime) {
         if (edge == null)
             throw new NullPointerException("edge should not be null");
         this.edge = edge;

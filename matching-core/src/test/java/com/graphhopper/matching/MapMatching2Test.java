@@ -51,7 +51,7 @@ public class MapMatching2Test {
 
         // make sure no virtual edges are returned
         int edgeCount = hopper.getGraphHopperStorage().getAllEdges().getMaxId();
-        for (MatchEdge em : mr.getEdgeMatches()) {
+        for (MatchedEdge em : mr.getEdgeMatches()) {
             assertTrue("result contains virtual edges:" + em.edge.toString(),
                     em.edge.getEdge() < edgeCount);
         }
