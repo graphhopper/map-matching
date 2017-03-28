@@ -73,7 +73,8 @@ public class MatchServlet extends GraphHopperServlet {
             inType = "json";
         }
 
-        PathWrapper matchGHRsp = new PathWrapper();
+        final List<Throwable> errors = new ArrayList<Throwable>();
+        // PathWrapper matchGHRsp = new PathWrapper();
         final String outType = getParam(httpReq, "type", "json");
         GPXFile gpxFile = new GPXFile();
         if (inType.equals("gpx")) {
@@ -81,7 +82,7 @@ public class MatchServlet extends GraphHopperServlet {
                 gpxFile = parseGPX(httpReq);
             } catch (Exception ex) {
                 // logger.warn("Cannot parse XML for " + httpReq.getQueryString() + " - " + ex.getMessage() + ", " + infoStr);
-                matchGHRsp.addError(ex);
+                errors.add(ex);
             }
 //        } else if (type.equals("json")) {
 //            try {
@@ -92,7 +93,7 @@ public class MatchServlet extends GraphHopperServlet {
 //                httpRes.getWriter().append(errorsToXML(Collections.<Throwable>singletonList(ex)));
 //            }
         } else {
-            matchGHRsp.addError(new IllegalArgumentException("Input type not supported " + inType + ", Content-Type:" + contentType));
+            errors.add(new IllegalArgumentException("Input type not supported " + inType + ", Content-Type:" + contentType));
         }
 
         boolean writeGPX = GPX_FORMAT.equals(outType);
@@ -110,9 +111,10 @@ public class MatchServlet extends GraphHopperServlet {
         double gpsAccuracy = Math.min(Math.max(getDoubleParam(httpReq, "gps_accuracy", defaultAccuracy), 5), gpsMaxAccuracy);
         Locale locale = Helper.getLocale(getParam(httpReq, "locale", "en"));
         MatchResult matchRsp = null;
+        List<PathWrapper> pathWrappers = null;
         StopWatch sw = new StopWatch().start();
 
-        if (!matchGHRsp.hasErrors()) {
+        if (errors.isEmpty()) {
             try {
                 AlgorithmOptions opts = AlgorithmOptions.start()
                         .traversalMode(hopper.getTraversalMode())
@@ -123,17 +125,21 @@ public class MatchServlet extends GraphHopperServlet {
                 matching.setMeasurementErrorSigma(gpsAccuracy);
                 matchRsp = matching.doWork(gpxFile.getEntries());
 
-                // fill GHResponse for identical structure            
-//                Path path = matching.calcPath(matchRsp);
-//                Translation tr = trMap.getWithFallBack(locale);
-//                DouglasPeucker peucker = new DouglasPeucker().setMaxDistance(wayPointMaxDistance);
-//                PathMerger pathMerger = new PathMerger().
-//                        setDouglasPeucker(peucker).
-//                        setSimplifyResponse(wayPointMaxDistance > 0);
-//                pathMerger.doWork(matchGHRsp, Collections.singletonList(path), tr);
-
+                // fill GHResponse for identical structure
+                pathWrappers = new ArrayList<PathWrapper>(matchRsp.sequences.size());
+                for (MatchSequence seq: matchRsp.sequences) {
+                	PathWrapper matchGHRsp = new PathWrapper();
+                	Path path = matching.calcPath(seq);
+	                Translation tr = trMap.getWithFallBack(locale);
+	                DouglasPeucker peucker = new DouglasPeucker().setMaxDistance(wayPointMaxDistance);
+	                PathMerger pathMerger = new PathMerger().
+	                        setDouglasPeucker(peucker).
+	                        setSimplifyResponse(wayPointMaxDistance > 0);
+	                pathMerger.doWork(matchGHRsp, Collections.singletonList(path), tr);
+	                pathWrappers.add(matchGHRsp);
+                }
             } catch (Exception ex) {
-                matchGHRsp.addError(ex);
+                errors.add(ex);
             }
         }
 
@@ -141,62 +147,64 @@ public class MatchServlet extends GraphHopperServlet {
 
         httpRes.setHeader("X-GH-Took", "" + Math.round(took * 1000));
         if (EXTENDED_JSON_FORMAT.equals(outType)) {
-            if (matchGHRsp.hasErrors()) {
+            if (!errors.isEmpty()) {
                 httpRes.setStatus(SC_BAD_REQUEST);
-                httpRes.getWriter().append(new JSONArray(matchGHRsp.getErrors()).toString());
+                httpRes.getWriter().append(new JSONArray(errors).toString());
             } else {
                 httpRes.getWriter().write(new MatchResultToJson(matchRsp).exportTo().toString());
             }
 
         } else if (GPX_FORMAT.equals(outType)) {
-            if (matchGHRsp.hasErrors()) {
+            if (!errors.isEmpty()) {
                 httpRes.setStatus(SC_BAD_REQUEST);
-                httpRes.getWriter().append(errorsToXML(matchGHRsp.getErrors()));
+                httpRes.getWriter().append(errorsToXML(errors));
             } else {
-                String xml = createGPXString(httpReq, httpRes, matchGHRsp);
-                writeResponse(httpRes, xml);
+//                String xml = createGPXString(httpReq, httpRes, matchGHRsp);
+//                writeResponse(httpRes, xml);
             }
         } else {
-            GHResponse rsp = new GHResponse();
-            rsp.add(matchGHRsp);
-            Map<String, Object> map = routeSerializer.toJSON(rsp, true, pointsEncoded,
-                    enableElevation, enableInstructions);
-
-            if (rsp.hasErrors()) {
-                writeJsonError(httpRes, SC_BAD_REQUEST, new JSONObject(map));
+            if (!errors.isEmpty()) {
+                httpRes.setStatus(SC_BAD_REQUEST);
+                httpRes.getWriter().append(new JSONArray(errors).toString());
             } else {
-                if (matchRsp == null) {
-                    throw new IllegalStateException("match response has to be none-null if no error happened");
+            	List<Map<String, Object>> maps = new ArrayList<Map<String, Object>>(pathWrappers.size());
+            	int seqIdx = 0;
+                for (PathWrapper pw: pathWrappers) {
+    	            GHResponse rsp = new GHResponse();
+                	rsp.add(pw);
+                	Map<String, Object> map = routeSerializer.toJSON(rsp, true, pointsEncoded, enableElevation,
+                			enableInstructions);
+                	map.put("distance", matchRsp.sequences.get(seqIdx).getMatchDistance());
+                	map.put("time", matchRsp.sequences.get(seqIdx).getMatchDuration());
+                	maps.add(map);
+                	seqIdx++;
                 }
-
                 Map<String, Object> matchResult = new HashMap<String, Object>();
-                matchResult.put("distance", matchRsp.getMatchLength());
-                matchResult.put("time", matchRsp.getMatchMillis());
                 matchResult.put("original_distance", matchRsp.getGpxEntriesLength());
                 matchResult.put("original_time", matchRsp.getGpxEntriesMillis());
-                map.put("map_matching", matchResult);
+//                map.put("map_matching", matchResult);
 
-                if (enableTraversalKeys) {
-                    // encode edges as traversal keys which includes orientation
-                    // decode simply by multiplying with 0.5
-                    List<Integer> traversalKeylist = new ArrayList<Integer>();
-                    for (MatchedEdge em : matchRsp.getEdgeMatches()) {
-                        EdgeIteratorState edge = em.edge;
-                        traversalKeylist.add(GHUtility.createEdgeKey(edge.getBaseNode(), edge.getAdjNode(), edge.getEdge(), false));
-                    }
-                    map.put("traversal_keys", traversalKeylist);
-                }
-
-                writeJson(httpReq, httpRes, new JSONObject(map));
+//                if (enableTraversalKeys) {
+//                    // encode edges as traversal keys which includes orientation
+//                    // decode simply by multiplying with 0.5
+//                    List<Integer> traversalKeylist = new ArrayList<Integer>();
+//                    for (MatchedEdge em : matchRsp.getEdgeMatches()) {
+//                        EdgeIteratorState edge = em.edge;
+//                        traversalKeylist.add(GHUtility.createEdgeKey(edge.getBaseNode(), edge.getAdjNode(), edge.getEdge(), false));
+//                    }
+//                    map.put("traversal_keys", traversalKeylist);
+//                }
+                matchResult.put("sequences", new JSONArray(maps));
+                writeJson(httpReq, httpRes, new JSONObject(matchResult));
             }
         }
 
-        String str = httpReq.getQueryString() + ", " + infoStr + ", took:" + took + ", entries:" + gpxFile.getEntries().size() + ", " + matchGHRsp.getDebugInfo();
-        if (matchGHRsp.hasErrors()) {
-            if (matchGHRsp.getErrors().get(0) instanceof IllegalArgumentException) {
-                logger.error(str + ", errors:" + matchGHRsp.getErrors());
+        String str = httpReq.getQueryString() + ", " + infoStr + ", took:" + took + ", entries:" + gpxFile.getEntries().size();
+        if (!errors.isEmpty()) {
+            if (errors.get(0) instanceof IllegalArgumentException) {
+                logger.error(str + ", errors:" + errors);
             } else {
-                logger.error(str + ", errors:" + matchGHRsp.getErrors(), matchGHRsp.getErrors().get(0));
+                logger.error(str + ", errors:" + errors, errors.get(0));
             }
         } else {
             logger.info(str);

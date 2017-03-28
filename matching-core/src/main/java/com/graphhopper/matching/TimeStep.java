@@ -34,7 +34,6 @@ public class TimeStep {
     public static enum MatchState {
         MATCHING_STATE_NOT_SET, NOT_USED_FOR_MATCHING, MATCHED
     };
-
     /**
      * The state of this match in the matching process.
      */
@@ -53,23 +52,23 @@ public class TimeStep {
      * will be the point on that road 5m away from the original GPX entry. Note that snappedPoint
      * should be on directedRealEdge.
      */
-    private GHPoint3D snappedPoint;
+    private GHPoint3D snappedPoint = null;
     /**
      * The (real) edge containing the snappedPoint.
      */
-    private EdgeIteratorState directedRealEdge;
+    private EdgeIteratorState directedRealEdge = null;
     /**
      * The distance along the directedRealEdge (starting from the baseNode) to the snappedPoint.
      */
-    private double distanceAlongRealEdge;
+    private Double distanceAlongRealEdge = null;
     /**
      * The index of the sequence in the map-match result containing this entry.
      */
-    private int sequenceIdx;
+    private Integer sequenceIdx = null;
     /**
      * The index of the corresponding TimeStep in this sequence.
      */
-    private int sequenceMatchEdgeIdx;
+    private Integer sequenceMatchEdgeIdx = null;
 
     /**
      * Create a TimeStep from a GPXEntry, to be used in map-matching.
@@ -116,7 +115,7 @@ public class TimeStep {
         return matchState;
     }
 
-    public int getSequenceIdx() {
+    public Integer getSequenceIdx() {
         return sequenceIdx;
     }
 
@@ -128,11 +127,11 @@ public class TimeStep {
         return directedRealEdge;
     }
 
-    public int getSequenceMatchEdgeIdx() {
+    public Integer getSequenceMatchEdgeIdx() {
         return sequenceMatchEdgeIdx;
     }
 
-    public double getDistanceAlongRealEdge() {
+    public Double getDistanceAlongRealEdge() {
         return distanceAlongRealEdge;
     }
 }

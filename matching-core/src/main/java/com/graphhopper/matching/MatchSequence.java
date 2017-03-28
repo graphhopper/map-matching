@@ -101,19 +101,19 @@ public class MatchSequence {
      * Create a new MatchSequence.
      * 
      * @param matchedSequence
-     * @param viterbiMatchEntriess
+     * @param hmmTimeSteps
      * @param viterbiBreakReason
      * @param type
      */
     public MatchSequence(List<SequenceState<Candidate, TimeStep, Path>> matchedSequence,
-            List<HmmTimeStep> viterbiMatchEntriess,
+            List<HmmTimeStep> hmmTimeSteps,
             ViterbiBreakReason viterbiBreakReason, SequenceType type) {
         if (matchedSequence.size() < 1)
             throw new IllegalArgumentException(
                     "cannot create a MatchSequence from an empty matchedSequence");
-        if (viterbiMatchEntriess.size() != matchedSequence.size())
+        if (hmmTimeSteps.size() != matchedSequence.size())
             throw new IllegalArgumentException(
-                    "matchedSequence and viterbiMatchEntries must be the same size");
+                    "matchedSequence and hmmTimeSteps must be the same size");
         this.matchedSequence = matchedSequence;
         this.viterbiBreakReason = viterbiBreakReason;
         this.type = type;
@@ -137,8 +137,10 @@ public class MatchSequence {
 
         // if it's a stationary/unknown sequence, there are no edges:
         // TODO: should we add the single edge in the case of a stationary sequence?
-        if (type != SequenceType.SEQUENCE)
+        if (type != SequenceType.SEQUENCE) {
+            computedMatchEdges = true;
             return;
+        }
         
         // add the rest:
         EdgeIteratorState lastEdgeAdded = null;

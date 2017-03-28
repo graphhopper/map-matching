@@ -81,7 +81,7 @@ public class MatchResult {
      * @param virtualEdgesMap map to convert virtual edges to real ones
      * @param nodeCount number of nodes in the base graph (so we can detect virtual nodes)
      */
-    public void computeMatcheEdges(Map<String, EdgeIteratorState> virtualEdgesMap, int nodeCount) {
+    public void computeMatchEdges(Map<String, EdgeIteratorState> virtualEdgesMap, int nodeCount) {
         matchEdges = new ArrayList<MatchedEdge>();
         matchDistance = 0;
         matchDuration = 0;

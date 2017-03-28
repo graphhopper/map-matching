@@ -94,7 +94,7 @@ public class HmmTimeStep {
     public List<QueryResult> findCandidateLocations(final Graph graph,
             final LocationIndexTree index, final EdgeFilter edgeFilter,
             double searchRadiusMeters) {
-        return index.findWithinRadius(timeStep.gpxEntry.lat, timeStep.gpxEntry.lon, edgeFilter, searchRadiusMeters, 2);
+        return index.findNClosest(timeStep.gpxEntry.lat, timeStep.gpxEntry.lon, edgeFilter, searchRadiusMeters);
     }
     
     /**

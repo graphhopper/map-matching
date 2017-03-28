@@ -54,15 +54,14 @@ public class MatchResultToJson {
         JSONObject root = new JSONObject();
         JSONObject diary = new JSONObject();
         JSONArray entries = new JSONArray();
-        JSONObject route = new JSONObject();
-        JSONArray links = new JSONArray();
         for (MatchSequence matchSequence: result.sequences) {
-
-    		JSONObject link = new JSONObject();
-    		
+        	JSONObject route = new JSONObject();
+        	JSONArray links = new JSONArray();
+        	
         	// add sequence geometry
         	int emIndex = 0;
         	for (MatchedEdge matchEdge: matchSequence.matchEdges) {
+            	JSONObject link = new JSONObject();
                 JSONObject geometry = new JSONObject();
                 PointList pointList = matchEdge.edge.fetchWayGeometry(emIndex == 0 ? 3 : 2);
 
@@ -76,26 +75,25 @@ public class MatchResultToJson {
 
                 link.put("id", matchEdge.edge.getEdge());
                 link.put("geometry", geometry.toString());
+                System.out.println(matchEdge.edge.getName());
 
-                emIndex++;
-        	}
         	
-        	// add waypoints:
-            JSONArray wpts = new JSONArray();
-            link.put("wpts", wpts);
-            for (SequenceState<Candidate, TimeStep, Path> step : matchSequence.matchedSequence) {
-                JSONObject wpt = new JSONObject();
-                wpt.put("x", step.state.getQueryResult().getSnappedPoint().lon);
-                wpt.put("y", step.state.getQueryResult().getSnappedPoint().lat);
-                wpt.put("timestamp", step.observation.gpxEntry.getTime());
-                wpts.put(wpt);
-            }
-
-            links.put(link);
+	        	// add waypoints:
+	            JSONArray wpts = new JSONArray();
+	            link.put("wpts", wpts);
+//	            for (SequenceState<Candidate, TimeStep, Path> step : matchSequence.matchedSequence) {
+//	                JSONObject wpt = new JSONObject();
+//	                wpt.put("x", step.state.getQueryResult().getSnappedPoint().lon);
+//	                wpt.put("y", step.state.getQueryResult().getSnappedPoint().lat);
+//	                wpt.put("timestamp", step.observation.gpxEntry.getTime());
+//	                wpts.put(wpt);
+//	            }
+	            links.put(link);
+                emIndex++;
+	        }
+	        route.put("links", links);
+	        entries.put(route);
         }
-
-        route.put("links", links);
-        entries.put(route);
         diary.put("entries", entries);
         root.put("diary", diary);
         return root;

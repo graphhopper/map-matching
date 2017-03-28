@@ -19,7 +19,6 @@ package com.graphhopper.matching.http;
 
 import com.google.inject.name.Names;
 import com.graphhopper.http.DefaultModule;
-import com.graphhopper.matching.LocationIndexMatch;
 import com.graphhopper.storage.index.LocationIndexTree;
 import com.graphhopper.util.CmdArgs;
 
@@ -36,11 +35,6 @@ public class MatchDefaultModule extends DefaultModule {
     @Override
     protected void configure() {
         super.configure();
-
-        LocationIndexMatch locationMatch = new LocationIndexMatch(getGraphHopper().getGraphHopperStorage(),
-                (LocationIndexTree) getGraphHopper().getLocationIndex());
-        bind(LocationIndexMatch.class).toInstance(locationMatch);
-
         Double timeout = args.getDouble("web.gps.max_accuracy", 100);
         bind(Double.class).annotatedWith(Names.named("gps.max_accuracy")).toInstance(timeout);
     }
