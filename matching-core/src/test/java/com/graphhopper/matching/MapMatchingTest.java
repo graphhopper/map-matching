@@ -24,14 +24,7 @@ import com.graphhopper.reader.osm.GraphHopperOSM;
 import com.graphhopper.routing.AlgorithmOptions;
 import com.graphhopper.routing.Path;
 import com.graphhopper.routing.util.*;
-import com.graphhopper.storage.GraphHopperStorage;
-import com.graphhopper.storage.NodeAccess;
-import com.graphhopper.storage.index.LocationIndex;
-import com.graphhopper.util.BreadthFirstSearch;
-import com.graphhopper.util.EdgeExplorer;
-import com.graphhopper.util.EdgeIteratorState;
 import com.graphhopper.util.GPXEntry;
-import com.graphhopper.util.Helper;
 import com.graphhopper.util.InstructionList;
 import com.graphhopper.util.PMap;
 import com.graphhopper.util.Parameters;
@@ -47,6 +40,8 @@ import java.util.List;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -114,9 +109,9 @@ public class MapMatchingTest {
 
         // make sure no virtual edges are returned
         int edgeCount = hopper.getGraphHopperStorage().getAllEdges().getMaxId();
-        for (EdgeMatch em : mr.getEdgeMatches()) {
-            assertTrue("result contains virtual edges:" + em.getEdgeState().toString(),
-                    em.getEdgeState().getEdge() < edgeCount);
+        for (MatchedEdge em : mr.getEdgeMatches()) {
+            assertTrue("result contains virtual edges:" + em.edge.toString(),
+                    em.edge.getEdge() < edgeCount);
         }
 
         // create street names
@@ -125,7 +120,7 @@ public class MapMatchingTest {
         assertEquals(mr.getGpxEntriesLength(), mr.getMatchLength(), 1.5);
         assertEquals(mr.getGpxEntriesMillis(), mr.getMatchMillis());
 
-        Path path = mapMatching.calcPath(mr);
+        Path path = mapMatching.calcPath(mr.sequences.get(0));
         PathWrapper matchGHRsp = new PathWrapper();
         new PathMerger().doWork(matchGHRsp, Collections.singletonList(path), SINGLETON.get("en"));
         InstructionList il = matchGHRsp.getInstructions();
@@ -143,7 +138,7 @@ public class MapMatchingTest {
         assertEquals(mr.getGpxEntriesLength(), mr.getMatchLength(), .1);
         assertEquals(mr.getGpxEntriesMillis(), mr.getMatchMillis(), 1);
 
-        path = mapMatching.calcPath(mr);
+        path = mapMatching.calcPath(mr.sequences.get(0));
         matchGHRsp = new PathWrapper();
         new PathMerger().doWork(matchGHRsp, Collections.singletonList(path), SINGLETON.get("en"));
         il = matchGHRsp.getInstructions();
@@ -171,37 +166,64 @@ public class MapMatchingTest {
     /**
      * This test is to check behavior over large separated routes: it should
      * work if the user sets the maxVisitedNodes large enough. Input path:
-     * https://graphhopper.com/maps/?point=51.23%2C12.18&point=51.45%2C12.59&layer=Lyrk
+     * https://graphhopper.com/maps/?point=51.23%2C12.18&point=51.45%2C12.59&layer=OpenStreetMap
      */
     @Test
     public void testDistantPoints() {
-
-        // OK with 1000 visited nodes:
         MapMatching mapMatching = new MapMatching(hopper, algoOptions);
         List<GPXEntry> inputGPXEntries = createRandomGPXEntries(
                 new GHPoint(51.23, 12.18),
                 new GHPoint(51.45, 12.59));
         MatchResult mr = mapMatching.doWork(inputGPXEntries);
-
         assertEquals(57650, mr.getMatchLength(), 1);
-        assertEquals(2747796, mr.getMatchMillis(), 1);
+        assertEquals(2748000, mr.getMatchMillis(), 500);
+    }
 
-        // not OK when we only allow a small number of visited nodes:
+    /**
+     * This test is to check that an exception occurs if maxVisitedNodes is exceeded.
+     */
+    @Test
+    public void testMaxVisitedNodesExceeded() {
         AlgorithmOptions opts = AlgorithmOptions.start(algoOptions).maxVisitedNodes(1).build();
-        mapMatching = new MapMatching(hopper, opts);
+        MapMatching mapMatching = new MapMatching(hopper, opts);
+        List<GPXEntry> inputGPXEntries = createRandomGPXEntries(
+                new GHPoint(51.23, 12.18),
+                new GHPoint(51.45, 12.59));
         try {
-            mr = mapMatching.doWork(inputGPXEntries);
-            fail("Expected sequence to be broken due to maxVisitedNodes being too small");
+            mapMatching.doWork(inputGPXEntries);
+            fail("Expected sequence to be broken due to maxVisitedNodes being exceeded");
         } catch (RuntimeException e) {
-            assertTrue(e.getMessage().startsWith("Sequence is broken for submitted track"));
+            assertTrue(e.getMessage().startsWith(
+                    "couldn't compute transition probabilities as routing failed due to too small"
+                            + " maxVisitedNodes"));
         }
     }
 
     /**
+     * This test is to check that the track is broken into two sequences when an internal point
+     * has no candidates:
+     */
+    @Test
+    @Ignore
+    public void testSequenceBreaksWhenNoCandidates() {
+        fail("not yet implemented");
+    }
+
+    /**
+     * This test is to check that the track is broken into two sequences when there are no possible
+     * routes between two timesteps
+     */
+    @Test
+    @Ignore
+    public void testSequenceBreaksWithUnconnectedSteps() {
+        fail("not yet implemented");
+    }
+    
+    /**
      * This test is to check what happens when two GPX entries are on one edge
      * which is longer than 'separatedSearchDistance' - which is always 66m. GPX
      * input:
-     * https://graphhopper.com/maps/?point=51.359723%2C12.360108&point=51.358748%2C12.358798&point=51.358001%2C12.357597&point=51.358709%2C12.356511&layer=Lyrk
+     * https://graphhopper.com/maps/?point=51.359723%2C12.360108&point=51.358748%2C12.358798&point=51.358001%2C12.357597&point=51.358709%2C12.356511&layer=OpenStreetMap
      */
     @Test
     public void testSmallSeparatedSearchDistance() {
@@ -212,13 +234,14 @@ public class MapMatchingTest {
         MatchResult mr = mapMatching.doWork(inputGPXEntries);
         assertEquals(Arrays.asList("Weinligstraße", "Weinligstraße", "Weinligstraße",
                 "Fechnerstraße", "Fechnerstraße"), fetchStreets(mr.getEdgeMatches()));
-        assertEquals(mr.getGpxEntriesLength(), mr.getMatchLength(), 11); // TODO: this should be around 300m according to Google ... need to check
+        assertEquals(381, mr.getGpxEntriesLength(), 2);
+        assertEquals(381, mr.getMatchLength(), 2);
         assertEquals(mr.getGpxEntriesMillis(), mr.getMatchMillis(), 3000);
     }
 
     /**
      * This test is to check that loops are maintained. GPX input:
-     * https://graphhopper.com/maps/?point=51.343657%2C12.360708&point=51.344982%2C12.364066&point=51.344841%2C12.361223&point=51.342781%2C12.361867&layer=Lyrk
+     * https://graphhopper.com/maps/?point=51.343657%2C12.360708&point=51.344982%2C12.364066&point=51.344841%2C12.361223&point=51.342781%2C12.361867&layer=OpenStreetMap
      */
     @Test
     public void testLoop() {
@@ -235,14 +258,15 @@ public class MapMatchingTest {
                         "Leibnizstraße", "Hinrichsenstraße", "Hinrichsenstraße",
                         "Tschaikowskistraße", "Tschaikowskistraße"),
                 fetchStreets(mr.getEdgeMatches()));
-        assertEquals(mr.getGpxEntriesLength(), mr.getMatchLength(), 5);
+        assertEquals(812, mr.getGpxEntriesLength(), 1);
+        assertEquals(812, mr.getMatchLength(), 1);
         // TODO why is there such a big difference for millis?
         assertEquals(mr.getGpxEntriesMillis(), mr.getMatchMillis(), 6000);
     }
 
     /**
      * This test is to check that loops are maintained. GPX input:
-     * https://graphhopper.com/maps/?point=51.342439%2C12.361615&point=51.343719%2C12.362784&point=51.343933%2C12.361781&point=51.342325%2C12.362607&layer=Lyrk
+     * https://graphhopper.com/maps/?point=51.342439%2C12.361615&point=51.343719%2C12.362784&point=51.343933%2C12.361781&point=51.342325%2C12.362607&layer=OpenStreetMap
      */
     @Test
     public void testLoop2() {
@@ -262,7 +286,7 @@ public class MapMatchingTest {
      * This test is to check that U-turns are avoided when it's just measurement
      * error, though do occur when a point goes up a road further than the
      * measurement error. GPX input:
-     * https://graphhopper.com/maps/?point=51.343618%2C12.360772&point=51.34401%2C12.361776&point=51.343977%2C12.362886&point=51.344734%2C12.36236&point=51.345233%2C12.362055&layer=Lyrk
+     * https://graphhopper.com/maps/?point=51.343618%2C12.360772&point=51.34401%2C12.361776&point=51.343977%2C12.362886&point=51.344734%2C12.36236&point=51.345233%2C12.362055&layer=OpenStreetMap
      */
     @Test
     public void testUTurns() {
@@ -297,20 +321,19 @@ public class MapMatchingTest {
                 fetchStreets(mr.getEdgeMatches()));
     }
 
-    static List<String> fetchStreets(List<EdgeMatch> emList) {
+    static List<String> fetchStreets(List<MatchedEdge> emList) {
         List<String> list = new ArrayList<String>();
         int prevNode = -1;
         List<String> errors = new ArrayList<String>();
-        for (EdgeMatch em : emList) {
-            String str = em.getEdgeState().getName();// + ":" + em.getEdgeState().getBaseNode() +
-            // "->" + em.getEdgeState().getAdjNode();
+        for (MatchedEdge em : emList) {
+            String str = em.edge.getName();
             list.add(str);
             if (prevNode >= 0) {
-                if (em.getEdgeState().getBaseNode() != prevNode) {
+                if (em.edge.getBaseNode() != prevNode) {
                     errors.add(str);
                 }
             }
-            prevNode = em.getEdgeState().getAdjNode();
+            prevNode = em.edge.getAdjNode();
         }
 
         if (!errors.isEmpty()) {
@@ -322,33 +345,6 @@ public class MapMatchingTest {
     private List<GPXEntry> createRandomGPXEntries(GHPoint start, GHPoint end) {
         hopper.route(new GHRequest(start, end).setWeighting("fastest"));
         return hopper.getEdges(0);
-    }
-
-    private void printOverview(GraphHopperStorage graph, LocationIndex locationIndex,
-                               final double lat, final double lon, final double length) {
-        final NodeAccess na = graph.getNodeAccess();
-        int node = locationIndex.findClosest(lat, lon, EdgeFilter.ALL_EDGES).getClosestNode();
-        final EdgeExplorer explorer = graph.createEdgeExplorer();
-        new BreadthFirstSearch() {
-
-            double currDist = 0;
-
-            @Override
-            protected boolean goFurther(int nodeId) {
-                double currLat = na.getLat(nodeId);
-                double currLon = na.getLon(nodeId);
-                currDist = Helper.DIST_PLANE.calcDist(currLat, currLon, lat, lon);
-                return currDist < length;
-            }
-
-            @Override
-            protected boolean checkAdjacent(EdgeIteratorState edge) {
-                System.out.println(edge.getBaseNode() + "->" + edge.getAdjNode() + " ("
-                        + Math.round(edge.getDistance()) + "): " + edge.getName() + "\t\t , distTo:"
-                        + currDist);
-                return true;
-            }
-        }.start(explorer, node);
     }
 
     // use a workaround to get access to paths

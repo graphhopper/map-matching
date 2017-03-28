@@ -60,27 +60,34 @@ function setup(map, mmClient) {
                 if (json.message) {
                     $("#map-matching-response").text("");
                     $("#map-matching-error").text(json.message);
-                } else if (json.paths && json.paths.length > 0) {
-                    var mm = json.map_matching;
-                    var error = (100 * Math.abs(1 - mm.distance / mm.original_distance));
-                    error = Math.floor(error * 100) / 100.0;
-                    $("#map-matching-response").text("success with " + error + "% difference, "
-                            + "distance " + Math.floor(mm.distance) + " vs. original distance " + Math.floor(mm.original_distance));
-                    var matchedPath = json.paths[0];
-                    var geojsonFeature = {
-                        type: "Feature",
-                        geometry: matchedPath.points,
-                        properties: {style: {color: "#00cc33", weight: 6, opacity: 0.4}}
-                    };
-                    routeLayer.addData(geojsonFeature);
-
-                    if (matchedPath.bbox) {
-                        var minLon = matchedPath.bbox[0];
-                        var minLat = matchedPath.bbox[1];
-                        var maxLon = matchedPath.bbox[2];
-                        var maxLat = matchedPath.bbox[3];
-                        var tmpB = new L.LatLngBounds(new L.LatLng(minLat, minLon), new L.LatLng(maxLat, maxLon));
-                        map.fitBounds(tmpB);
+                } else if (json.sequences.length > 0) {
+                    //var error = (100 * Math.abs(1 - mm.distance / mm.original_distance));
+                    //error = Math.floor(error * 100) / 100.0;
+                    //$("#map-matching-response").text("success with " + error + "% difference, "
+                    //        + "distance " + Math.floor(mm.distance) + " vs. original distance " + Math.floor(mm.original_distance));
+                    var n = json.sequences.length;
+                    console.log(json.sequences);
+                    for (var i = 0; i < n; i++) {
+                    	if (json.sequences[i].paths) { // TODO: stationary sequences ignored
+		                    var matchedPath = json.sequences[i].paths[0];
+		                    var geojsonFeature = {
+		                        type: "Feature",
+		                        geometry: matchedPath.points,
+		                        properties: {style: {color: "#00cc33", weight: 6, opacity: 0.4}}
+		                    };
+		                    routeLayer.addData(geojsonFeature);
+		
+		/*
+		                    if (matchedPath.bbox) {
+		                        var minLon = matchedPath.bbox[0];
+		                        var minLat = matchedPath.bbox[1];
+		                        var maxLon = matchedPath.bbox[2];
+		                        var maxLat = matchedPath.bbox[3];
+		                        var tmpB = new L.LatLngBounds(new L.LatLng(minLat, minLon), new L.LatLng(maxLat, maxLon));
+		                        map.fitBounds(tmpB);
+		                    }
+		                    */
+		                    }
                     }
                 } else {
                     $("#map-matching-error").text("unknown error");
@@ -125,18 +132,22 @@ GraphHopperMapMatching.prototype.doRequest = function (content, callback, reqArg
         type: "POST",
         data: content
     }).done(function (json) {
-        if (json.paths) {
-            for (var i = 0; i < json.paths.length; i++) {
-                var path = json.paths[i];
-                // convert encoded polyline to geo json
-                if (path.points_encoded) {
-                    var tmpArray = graphhopper.util.decodePath(path.points, that.elevation);
-                    path.points = {
-                        "type": "LineString",
-                        "coordinates": tmpArray
-                    };
-                }
-            }
+        var n = json.sequences.length;
+        for (var j = 0; j < n; j++) {
+        	var sequence = json.sequences[j];
+	        if (sequence.paths) {
+	            for (var i = 0; i < sequence.paths.length; i++) {
+	                var path = sequence.paths[i];
+	                // convert encoded polyline to geo json
+	                if (path.points_encoded) {
+	                    var tmpArray = graphhopper.util.decodePath(path.points, that.elevation);
+	                    path.points = {
+	                        "type": "LineString",
+	                        "coordinates": tmpArray
+	                    };
+	                }
+	            }
+	        }
         }
         callback(json);
 

@@ -6,6 +6,7 @@
  * rory, support milisecond gpx timestamps, see #4 
  * stefanholder, Stefan Holder, BMW AG, creating and integrating the hmm-lib (#49, #66, #69) and
  penalizing inner-link U-turns (#88, #91)
- * kodonnell, adding support for CH and other algorithms (#60) and penalizing inner-link U-turns (#88)
+ * kodonnell, adding support for CH and other algorithms (#60) and penalizing inner-link U-turns
+ (#88) and handling sequence breaks as separate sequences (#87).
 
 For GraphHopper contributors see [here](https://github.com/graphhopper/graphhopper/blob/master/CONTRIBUTORS.md).

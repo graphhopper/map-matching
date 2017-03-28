@@ -20,13 +20,17 @@ package com.graphhopper.matching.http;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import com.graphhopper.matching.EdgeMatch;
-import com.graphhopper.matching.GPXExtension;
+import com.graphhopper.matching.MatchedEdge;
+import com.graphhopper.matching.TimeStep;
+import com.bmw.hmm.SequenceState;
+import com.graphhopper.matching.Candidate;
 import com.graphhopper.matching.MatchResult;
+import com.graphhopper.matching.MatchSequence;
+import com.graphhopper.routing.Path;
 import com.graphhopper.util.PointList;
 
 /**
- * Transform MatchResult in Json Object with fallow structure:
+ * Transform MatchResult in JSON Object with following structure:
  * <pre>
  * { "diary": {
  *   "routes": [
@@ -50,42 +54,46 @@ public class MatchResultToJson {
         JSONObject root = new JSONObject();
         JSONObject diary = new JSONObject();
         JSONArray entries = new JSONArray();
-        JSONObject route = new JSONObject();
-        JSONArray links = new JSONArray();
-        for (int emIndex = 0; emIndex < result.getEdgeMatches().size(); emIndex++) {
-            JSONObject link = new JSONObject();
-            JSONObject geometry = new JSONObject();
+        for (MatchSequence matchSequence: result.sequences) {
+        	JSONObject route = new JSONObject();
+        	JSONArray links = new JSONArray();
+        	
+        	// add sequence geometry
+        	int emIndex = 0;
+        	for (MatchedEdge matchEdge: matchSequence.matchEdges) {
+            	JSONObject link = new JSONObject();
+                JSONObject geometry = new JSONObject();
+                PointList pointList = matchEdge.edge.fetchWayGeometry(emIndex == 0 ? 3 : 2);
 
-            EdgeMatch edgeMatch = result.getEdgeMatches().get(emIndex);
-            PointList pointList = edgeMatch.getEdgeState().fetchWayGeometry(emIndex == 0 ? 3 : 2);
+                if (pointList.size() < 2) {
+                    geometry.put("coordinates", pointList.toGeoJson().get(0));
+                    geometry.put("type", "Point");
+                } else {
+                    geometry.put("coordinates", pointList.toGeoJson());
+                    geometry.put("type", "LineString");
+                }
 
-            if (pointList.size() < 2) {
-                geometry.put("coordinates", pointList.toGeoJson().get(0));
-                geometry.put("type", "Point");
-            } else {
-                geometry.put("coordinates", pointList.toGeoJson());
-                geometry.put("type", "LineString");
-            }
+                link.put("id", matchEdge.edge.getEdge());
+                link.put("geometry", geometry.toString());
+                System.out.println(matchEdge.edge.getName());
 
-            link.put("id", edgeMatch.getEdgeState().getEdge());
-            link.put("geometry", geometry.toString());
-
-            JSONArray wpts = new JSONArray();
-            link.put("wpts", wpts);
-
-            for (GPXExtension extension : edgeMatch.getGpxExtensions()) {
-                JSONObject wpt = new JSONObject();
-                wpt.put("x", extension.getQueryResult().getSnappedPoint().lon);
-                wpt.put("y", extension.getQueryResult().getSnappedPoint().lat);
-                wpt.put("timestamp", extension.getEntry().getTime());
-                wpts.put(wpt);
-            }
-
-            links.put(link);
+        	
+	        	// add waypoints:
+	            JSONArray wpts = new JSONArray();
+	            link.put("wpts", wpts);
+//	            for (SequenceState<Candidate, TimeStep, Path> step : matchSequence.matchedSequence) {
+//	                JSONObject wpt = new JSONObject();
+//	                wpt.put("x", step.state.getQueryResult().getSnappedPoint().lon);
+//	                wpt.put("y", step.state.getQueryResult().getSnappedPoint().lat);
+//	                wpt.put("timestamp", step.observation.gpxEntry.getTime());
+//	                wpts.put(wpt);
+//	            }
+	            links.put(link);
+                emIndex++;
+	        }
+	        route.put("links", links);
+	        entries.put(route);
         }
-
-        route.put("links", links);
-        entries.put(route);
         diary.put("entries", entries);
         root.put("diary", diary);
         return root;

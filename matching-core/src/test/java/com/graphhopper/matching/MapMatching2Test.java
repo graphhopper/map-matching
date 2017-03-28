@@ -51,9 +51,9 @@ public class MapMatching2Test {
 
         // make sure no virtual edges are returned
         int edgeCount = hopper.getGraphHopperStorage().getAllEdges().getMaxId();
-        for (EdgeMatch em : mr.getEdgeMatches()) {
-            assertTrue("result contains virtual edges:" + em.getEdgeState().toString(),
-                    em.getEdgeState().getEdge() < edgeCount);
+        for (MatchedEdge em : mr.getEdgeMatches()) {
+            assertTrue("result contains virtual edges:" + em.edge.toString(),
+                    em.edge.getEdge() < edgeCount);
         }
 
         // create street names

@@ -20,9 +20,10 @@ package com.graphhopper.matching.util;
 import com.graphhopper.GHRequest;
 import com.graphhopper.GHResponse;
 import com.graphhopper.GraphHopper;
-import com.graphhopper.matching.LocationIndexMatch;
 import com.graphhopper.matching.MapMatching;
+import com.graphhopper.matching.TimeStep;
 import com.graphhopper.matching.MatchResult;
+import com.graphhopper.matching.HmmTimeStep;
 import com.graphhopper.reader.osm.GraphHopperOSM;
 import com.graphhopper.routing.AlgorithmOptions;
 import com.graphhopper.routing.util.*;
@@ -58,7 +59,8 @@ public class Measurement {
         new Measurement().start(CmdArgs.read(strs));
     }
 
-    // creates measurement result file in the format <measurement property>=<value>
+    // creates measurement result file in the format <measurement
+    // property>=<value>
     void start(CmdArgs args) throws Exception {
 
         // read and initialize arguments:
@@ -77,22 +79,18 @@ public class Measurement {
         hopper.getCHFactoryDecorator().setEnabled(true);
         hopper.getCHFactoryDecorator().setDisablingAllowed(true);
         hopper.importOrLoad();
-        
+
         // and map-matching stuff
         GraphHopperStorage graph = hopper.getGraphHopperStorage();
         bbox = graph.getBounds();
-        LocationIndexMatch locationIndex = new LocationIndexMatch(graph,
-                (LocationIndexTree) hopper.getLocationIndex());
         // TODO: allow tests of non-CH?
-        AlgorithmOptions algoOpts = AlgorithmOptions.start()
-                .maxVisitedNodes((int) 1e20)
-                .build();
+        AlgorithmOptions algoOpts = AlgorithmOptions.start().maxVisitedNodes((int) 1e20).build();
         MapMatching mapMatching = new MapMatching(hopper, algoOpts);
-        
+
         // start tests:
         StopWatch sw = new StopWatch().start();
         try {
-            printLocationIndexMatchQuery(locationIndex);
+            printLocationIndexMatchQuery(graph, (LocationIndexTree) hopper.getLocationIndex());
             printTimeOfMapMatchQuery(hopper, mapMatching);
             System.gc();
             logger.info("store into " + propLocation);
@@ -117,11 +115,12 @@ public class Measurement {
     }
 
     /**
-     * Test the performance of finding candidate points for the index (which is run for every GPX
-     * entry).
+     * Test the performance of finding candidate points for the index (which is
+     * run for every GPX entry).
      * 
      */
-    private void printLocationIndexMatchQuery(final LocationIndexMatch idx) {
+    private void printLocationIndexMatchQuery(final GraphHopperStorage graph,
+            final LocationIndexTree index) {
         final double latDelta = bbox.maxLat - bbox.minLat;
         final double lonDelta = bbox.maxLon - bbox.minLon;
         final Random rand = new Random(seed);
@@ -130,8 +129,10 @@ public class Measurement {
             public int doCalc(boolean warmup, int run) {
                 double lat = rand.nextDouble() * latDelta + bbox.minLat;
                 double lon = rand.nextDouble() * lonDelta + bbox.minLon;
-                int val = idx.findNClosest(lat, lon, EdgeFilter.ALL_EDGES, rand.nextDouble() * 500)
-                        .size();
+                HmmTimeStep entry = new HmmTimeStep(
+                        new TimeStep(new GPXEntry(lat, lon, 0)));
+                int val = entry.findCandidateLocations(graph, index, EdgeFilter.ALL_EDGES,
+                        rand.nextDouble() * 500).size();
                 return val;
             }
         }.setIterations(count).start();
@@ -139,13 +140,14 @@ public class Measurement {
     }
 
     /**
-     * Test the time taken for map matching on random routes. Note that this includes the index
-     * lookups (previous tests), so will be affected by those. Otherwise this is largely testing the
-     * routing and HMM performance.
+     * Test the time taken for map matching on random routes. Note that this
+     * includes the index lookups (previous tests), so will be affected by
+     * those. Otherwise this is largely testing the routing and HMM performance.
      */
     private void printTimeOfMapMatchQuery(final GraphHopper hopper, final MapMatching mapMatching) {
 
-        // pick random start/end points to create a route, then pick random points from the route,
+        // pick random start/end points to create a route, then pick random
+        // points from the route,
         // and then run the random points through map-matching.
         final double latDelta = bbox.maxLat - bbox.minLat;
         final double lonDelta = bbox.maxLon - bbox.minLon;
@@ -153,7 +155,9 @@ public class Measurement {
         // this takes a while, so we'll limit it to 100 tests:
         int n = count;
         if (n > 100) {
-            logger.warn("map matching query tests take a while, so we'll only do 100 iterations (instead of " + count + ")");
+            logger.warn(
+                    "map matching query tests take a while, so we'll only do 100 iterations (instead of "
+                            + count + ")");
             n = 100;
         }
         MiniPerfTest miniPerf = new MiniPerfTest() {
@@ -161,7 +165,8 @@ public class Measurement {
             public int doCalc(boolean warmup, int run) {
                 boolean foundPath = false;
 
-                // keep going until we find a path (which we may not for certain start/end points)
+                // keep going until we find a path (which we may not for certain
+                // start/end points)
                 while (!foundPath) {
 
                     // create random points and find route between:
@@ -179,11 +184,14 @@ public class Measurement {
                         GHPoint prev = null;
                         List<GPXEntry> mock = new ArrayList<GPXEntry>();
                         PointList points = r.getBest().getPoints();
-                        // loop through points and add (approximately) sampleProportion of them:
+                        // loop through points and add (approximately)
+                        // sampleProportion of them:
                         for (GHPoint p : points) {
                             if (null != prev && rand.nextDouble() < sampleProportion) {
-                                // estimate a reasonable time taken since the last point, so we
-                                // can give the GPXEntry a time. Use the distance between the
+                                // estimate a reasonable time taken since the
+                                // last point, so we
+                                // can give the GPXEntry a time. Use the
+                                // distance between the
                                 // points and a random speed to estimate a time.
                                 double dx = distCalc.calcDist(prev.lat, prev.lon, p.lat, p.lon);
                                 double speedKPH = rand.nextDouble() * 100;
@@ -200,7 +208,8 @@ public class Measurement {
                         // now match, provided there are enough points
                         if (mock.size() > 2) {
                             MatchResult match = mapMatching.doWork(mock);
-                            // return something non-trivial, to avoid JVM optimizing away
+                            // return something non-trivial, to avoid JVM
+                            // optimizing away
                             return match.getEdgeMatches().size();
                         } else {
                             foundPath = false; // retry
@@ -215,7 +224,7 @@ public class Measurement {
 
     void print(String prefix, MiniPerfTest perf) {
         logger.info(prefix + ": " + perf.getReport());
-        put(prefix + ".sum", perf.getSum());                                        
+        put(prefix + ".sum", perf.getSum());
         put(prefix + ".min", perf.getMin());
         put(prefix + ".mean", perf.getMean());
         put(prefix + ".max", perf.getMax());

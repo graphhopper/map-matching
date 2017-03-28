@@ -17,85 +17,126 @@
  */
 package com.graphhopper.matching;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+
+import com.graphhopper.util.DistanceCalc;
+import com.graphhopper.util.EdgeIteratorState;
+import com.graphhopper.util.GPXEntry;
 
 /**
  *
  * @author Peter Karich
+ * @author kodonnell
  */
 public class MatchResult {
 
-    private List<EdgeMatch> edgeMatches;
-    private double matchLength;
-    private long matchMillis;
-    private double gpxEntriesLength;
-    private long gpxEntriesMillis;
-
-    public MatchResult(List<EdgeMatch> edgeMatches) {
-        setEdgeMatches(edgeMatches);
+    /**
+     * The original GPX entries (wrapped in TimeStep's to include matching information).
+     */
+    public final List<TimeStep> timeSteps;
+    /**
+     * The sequences that make up the match result.
+     */
+    public final List<MatchSequence> sequences;
+    /**
+     * The length (meters) of the total *matched* path, excluding sequence breaks.
+     */
+    private double matchDistance;
+    /**
+     * The time (milliseconds) to travel the *matched* path that makes up this sequence, assuming
+     * one travels at the speed limit and there are no turn costs between sequence connections.
+     */
+    private long matchDuration;
+    /**
+     * The cumulative sequential great-line distance between all of the GPX entries, in meters,
+     * optionally skipping the distances between sequence breaks.
+     */
+    private double gpxEntriesDistance;
+    /**
+     * The time (milliseconds) between the last and first GPX entry, optionally skipping the
+     * time between sequence breaks.
+     */
+    private long gpxEntriesDuration;
+    /**
+     * A list of all of the match edges (just a union of those for each sequence).
+     */
+    private List<MatchedEdge> matchEdges = null;
+    
+    /**
+     * Create a match result.
+     * 
+     * @param timeSteps
+     * @param sequences
+     */
+    public MatchResult(List<TimeStep> timeSteps, List<MatchSequence> sequences) {
+        this.timeSteps = timeSteps;
+        this.sequences = sequences;
     }
-
-    public void setEdgeMatches(List<EdgeMatch> edgeMatches) {
-        if (edgeMatches == null) {
-            throw new IllegalStateException("edgeMatches cannot be null");
+    
+    /**
+     * Compute the (real) edges that make up this MatchResult, and some summary information.
+     * 
+     * @param virtualEdgesMap map to convert virtual edges to real ones
+     * @param nodeCount number of nodes in the base graph (so we can detect virtual nodes)
+     */
+    public void computeMatchEdges(Map<String, EdgeIteratorState> virtualEdgesMap, int nodeCount) {
+        matchEdges = new ArrayList<MatchedEdge>();
+        matchDistance = 0;
+        matchDuration = 0;
+        for (MatchSequence sequence: sequences) {
+            sequence.computeMatchEdges(virtualEdgesMap, nodeCount);
+            matchDistance += sequence.getMatchDistance();
+            matchDuration += sequence.getMatchDuration();
+            matchEdges.addAll(sequence.matchEdges);
         }
-
-        this.edgeMatches = edgeMatches;
-    }
-
-    public void setGPXEntriesLength(double gpxEntriesLength) {
-        this.gpxEntriesLength = gpxEntriesLength;
-    }
-
-    public void setGPXEntriesMillis(long gpxEntriesMillis) {
-        this.gpxEntriesMillis = gpxEntriesMillis;
-    }
-
-    public void setMatchLength(double matchLength) {
-        this.matchLength = matchLength;
-    }
-
-    public void setMatchMillis(long matchMillis) {
-        this.matchMillis = matchMillis;
     }
 
     /**
-     * All possible assigned edges.
+     * Compute statistics about the original GPX entries e.g. the cumulative point-to-point
+     * straight line distance. This is generally so we can compare with the corresponding
+     * match statistics.
+     * 
+     * @param distCalc DistanceCalc to use for calculating distances between GPX entries.
      */
-    public List<EdgeMatch> getEdgeMatches() {
-        return edgeMatches;
+    public void computeGPXStats(DistanceCalc distCalc) {
+        gpxEntriesDistance = 0;
+        GPXEntry lastGPXEntry = null;
+        boolean first = true;
+        for (TimeStep timeStep: timeSteps) {
+            if (first) {
+                first = false;
+            } else {
+                // NOTE: could allow user to calculate GPX stats using only those GPX points
+                // used for matching, i.e. timeStep.getMatchState() == MatchState.MATCHED
+                gpxEntriesDistance += distCalc.calcDist(lastGPXEntry.lat, lastGPXEntry.lon,
+                        timeStep.gpxEntry.lat, timeStep.gpxEntry.lon);
+            }
+            lastGPXEntry = timeStep.gpxEntry;
+        }
+        // NOTE: assumes events temporally ordered!
+        gpxEntriesDuration = timeSteps.get(timeSteps.size() - 1).gpxEntry.getTime()
+                - timeSteps.get(0).gpxEntry.getTime();
     }
 
-    /**
-     * Length of the original GPX track in meters
-     */
+    public List<MatchedEdge> getEdgeMatches() {
+        return matchEdges;
+    }
+
     public double getGpxEntriesLength() {
-        return gpxEntriesLength;
+        return gpxEntriesDistance;
     }
-
-    /**
-     * Length of the original GPX track in milliseconds
-     */
+    
     public long getGpxEntriesMillis() {
-        return gpxEntriesMillis;
+        return gpxEntriesDuration;
     }
 
-    /**
-     * Length of the map-matched road in meters
-     */
     public double getMatchLength() {
-        return matchLength;
+        return matchDistance;
     }
 
-    /**
-     * Length of the map-matched road in milliseconds
-     */
     public long getMatchMillis() {
-        return matchMillis;
-    }
-
-    @Override
-    public String toString() {
-        return "length:" + matchLength + ", seconds:" + matchMillis / 1000f + ", matches:" + edgeMatches.toString();
+        return matchDuration;
     }
 }
