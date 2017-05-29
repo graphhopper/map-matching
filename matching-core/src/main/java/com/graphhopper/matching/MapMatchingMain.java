@@ -113,13 +113,13 @@ public class MapMatchingMain {
                     matchSW.start();
                     MatchResult mr = mapMatching.doWork(inputGPXEntries);
                     matchSW.stop();
-                    System.out.println(gpxFile);
-                    System.out.println("\tmatches:\t" + mr.getEdgeMatches().size() + ", gps entries:" + inputGPXEntries.size());
-                    System.out.println("\tgpx length:\t" + (float) mr.getGpxEntriesLength() + " vs " + (float) mr.getMatchLength());
-                    System.out.println("\tgpx time:\t" + mr.getGpxEntriesMillis() / 1000f + " vs " + mr.getMatchMillis() / 1000f);
+                    logger.info(gpxFile.toString());
+                    logger.info("\tmatches:\t" + mr.getEdgeMatches().size() + ", gps entries:" + inputGPXEntries.size());
+                    logger.info("\tgpx length:\t" + (float) mr.getGpxEntriesLength() + " vs " + (float) mr.getMatchLength());
+                    logger.info("\tgpx time:\t" + mr.getGpxEntriesMillis() / 1000f + " vs " + mr.getMatchMillis() / 1000f);
 
                     String outFile = gpxFile.getAbsolutePath() + ".res.gpx";
-                    System.out.println("\texport results to:" + outFile);
+                    logger.info("\texport results to:" + outFile);
 
                     InstructionList il;
                     if (instructions.isEmpty()) {
@@ -138,7 +138,7 @@ public class MapMatchingMain {
                     logger.error("Problem with file " + gpxFile + " Error: " + ex.getMessage(), ex);
                 }
             }
-            System.out.println("gps import took:" + importSW.getSeconds() + "s, match took: " + matchSW.getSeconds());
+            logger.info("gps import took:" + importSW.getSeconds() + "s, match took: " + matchSW.getSeconds());
 
         } else if (action.equals("getbounds")) {
             String gpxLocation = args.get("gpx", "");
@@ -151,18 +151,18 @@ public class MapMatchingMain {
                 }
             }
 
-            System.out.println("max bounds: " + bbox);
+            logger.info("max bounds: " + bbox);
 
             // show download only for small areas
             if (bbox.maxLat - bbox.minLat < 0.1 && bbox.maxLon - bbox.minLon < 0.1) {
                 double delta = 0.01;
-                System.out.println("Get small areas via\n"
+                logger.info("Get small areas via\n"
                         + "wget -O extract.osm 'http://overpass-api.de/api/map?bbox="
                         + (bbox.minLon - delta) + "," + (bbox.minLat - delta) + ","
                         + (bbox.maxLon + delta) + "," + (bbox.maxLat + delta) + "'");
             }
         } else {
-            System.out.println("Usage: Do an import once, then do the matching\n"
+            logger.info("Usage: Do an import once, then do the matching\n"
                     + "./map-matching action=import datasource=your.pbf\n"
                     + "./map-matching action=match gpx=your.gpx\n"
                     + "./map-matching action=match gpx=.*gpx\n\n"
