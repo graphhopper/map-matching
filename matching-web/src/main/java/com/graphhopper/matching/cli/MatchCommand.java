@@ -6,6 +6,7 @@ import com.graphhopper.PathWrapper;
 import com.graphhopper.matching.gpx.Gpx;
 import com.graphhopper.matching.MapMatching;
 import com.graphhopper.matching.MatchResult;
+import com.graphhopper.matching.http.MapMatchingResource;
 import com.graphhopper.reader.osm.GraphHopperOSM;
 import com.graphhopper.routing.AlgorithmOptions;
 import com.graphhopper.routing.util.FlagEncoder;
@@ -17,9 +18,7 @@ import io.dropwizard.setup.Bootstrap;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 
-import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileWriter;
 import java.util.Collections;
 import java.util.List;
 
@@ -104,18 +103,19 @@ public class MatchCommand extends Command {
                 System.out.println("\tgpx length:\t" + (float) mr.getGpxEntriesLength() + " vs " + (float) mr.getMatchLength());
                 System.out.println("\tgpx time:\t" + mr.getGpxEntriesMillis() / 1000f + " vs " + mr.getMatchMillis() / 1000f);
 
-                String outFile = gpxFile.getAbsolutePath() + ".res.gpx";
+                File outFile = new File(gpxFile.getAbsolutePath() + ".res.gpx");
                 System.out.println("\texport results to:" + outFile);
 
                 PathWrapper pathWrapper = new PathWrapper();
                 new PathMerger().doWork(pathWrapper, Collections.singletonList(mr.getMergedPath()), tr);
-                try (BufferedWriter writer = new BufferedWriter(new FileWriter(outFile))) {
-                    long time = System.currentTimeMillis();
-                    if (!measurements.isEmpty()) {
-                        time = measurements.get(0).getTime();
-                    }
-                    writer.append(pathWrapper.getInstructions().createGPX(gpx.trk.get(0).name != null ? gpx.trk.get(0).name : "", time, hopper.hasElevation(), withRoute, true, false, Constants.VERSION));
+                long time = System.currentTimeMillis();
+                if (!measurements.isEmpty()) {
+                    time = measurements.get(0).getTime();
                 }
+                boolean hasElevation = hopper.hasElevation();
+
+                Gpx outGpx = MapMatchingResource.getGpx(gpx, mr, hasElevation);
+                xmlMapper.writeValue(outFile, outGpx);
             } catch (Exception ex) {
                 importSW.stop();
                 matchSW.stop();

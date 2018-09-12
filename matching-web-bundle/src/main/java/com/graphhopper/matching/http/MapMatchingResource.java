@@ -30,15 +30,20 @@ import com.graphhopper.matching.EdgeMatch;
 import com.graphhopper.matching.GPXExtension;
 import com.graphhopper.matching.MapMatching;
 import com.graphhopper.matching.MatchResult;
+import com.graphhopper.matching.gpx.Trk;
+import com.graphhopper.matching.gpx.Trkpt;
+import com.graphhopper.matching.gpx.Trkseg;
 import com.graphhopper.routing.AlgorithmOptions;
 import com.graphhopper.routing.util.HintsMap;
 import com.graphhopper.util.*;
+import com.graphhopper.util.shapes.GHPoint3D;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.*;
+import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -63,6 +68,31 @@ public class MapMatchingResource {
     public MapMatchingResource(GraphHopper graphHopper, TranslationMap trMap) {
         this.graphHopper = graphHopper;
         this.trMap = trMap;
+    }
+
+    public static Gpx getGpx(Gpx gpx, MatchResult mr, boolean hasElevation) {
+        Gpx outGpx = new Gpx();
+        outGpx.trk = new ArrayList<>();
+        Trk outTrk = new Trk();
+        outTrk.name = gpx.trk.get(0).name;
+        outTrk.trkseg = new ArrayList<>();
+        Trkseg outTrkseg = new Trkseg();
+        outTrkseg.trkpt = new ArrayList<>();
+        for (EdgeMatch edgeMatch : mr.getEdgeMatches()) {
+            for (GPXExtension gpxExtension : edgeMatch.getGpxExtensions()) {
+                Trkpt outTrkpt = new Trkpt();
+                GHPoint3D snappedPoint = gpxExtension.getQueryResult().getSnappedPoint();
+                outTrkpt.lon = snappedPoint.lon;
+                outTrkpt.lat = snappedPoint.lat;
+                if (hasElevation) {
+                    outTrkpt.ele = snappedPoint.ele;
+                }
+                outTrkseg.trkpt.add(outTrkpt);
+            }
+        }
+        outTrk.trkseg.add(outTrkseg);
+        outGpx.trk.add(outTrk);
+        return outGpx;
     }
 
     @POST
@@ -141,7 +171,7 @@ public class MapMatchingResource {
                 if (!measurements.isEmpty()) {
                     time = measurements.get(0).getTime();
                 }
-                return Response.ok(rsp.getBest().getInstructions().createGPX(gpx.trk.get(0).name != null ? gpx.trk.get(0).name : "", time, enableElevation, withRoute, withTrack, false, Constants.VERSION), "application/gpx+xml").
+                return Response.ok(getGpx(gpx, matchResult, enableElevation), "application/gpx+xml").
                         header("X-GH-Took", "" + Math.round(took * 1000)).
                         build();
             } else {

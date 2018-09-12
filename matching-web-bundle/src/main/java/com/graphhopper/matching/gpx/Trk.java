@@ -17,8 +17,10 @@
  */
 package com.graphhopper.matching.gpx;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlElementWrapper;
+import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty;
 import com.graphhopper.util.GPXEntry;
 
 import java.util.ArrayList;
@@ -27,15 +29,22 @@ import java.util.List;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Trk {
 
-    @JacksonXmlElementWrapper(useWrapping = false)
-    public List<Trkseg> trkseg;
+    @JacksonXmlProperty(namespace = "http://www.topografix.com/GPX/1/1")
     public String name;
+    @JacksonXmlElementWrapper(useWrapping = false)
+    @JacksonXmlProperty(namespace = "http://www.topografix.com/GPX/1/1")
+    public List<Trkseg> trkseg;
 
+    @JsonIgnore
     public List<GPXEntry> getEntries() {
         ArrayList<GPXEntry> gpxEntries = new ArrayList<>();
         for (Trkseg t : trkseg) {
             for (Trkpt trkpt : t.trkpt) {
-                gpxEntries.add(new GPXEntry(trkpt.lat, trkpt.lon, trkpt.ele, trkpt.time != null ? trkpt.time.getTime() : 0));
+                if (trkpt.ele != null) {
+                    gpxEntries.add(new GPXEntry(trkpt.lat, trkpt.lon, trkpt.ele, trkpt.time != null ? trkpt.time.getTime() : 0));
+                } else {
+                    gpxEntries.add(new GPXEntry(trkpt.lat, trkpt.lon, trkpt.time != null ? trkpt.time.getTime() : 0));
+                }
             }
         }
         return gpxEntries;

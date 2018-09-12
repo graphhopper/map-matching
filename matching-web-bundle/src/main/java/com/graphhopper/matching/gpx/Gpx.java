@@ -20,13 +20,17 @@ package com.graphhopper.matching.gpx;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlElementWrapper;
+import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty;
+import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlRootElement;
 
 import java.util.List;
 
+@JacksonXmlRootElement(localName = "gpx", namespace = "http://www.topografix.com/GPX/1/1")
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Gpx {
 
     @JacksonXmlElementWrapper(useWrapping = false)
+    @JacksonXmlProperty(namespace = "http://www.topografix.com/GPX/1/1")
     public List<Trk> trk;
 
 }

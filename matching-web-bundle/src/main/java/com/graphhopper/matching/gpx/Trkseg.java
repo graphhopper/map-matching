@@ -20,6 +20,7 @@ package com.graphhopper.matching.gpx;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlElementWrapper;
+import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty;
 
 import java.util.List;
 
@@ -27,6 +28,7 @@ import java.util.List;
 public class Trkseg {
 
     @JacksonXmlElementWrapper(useWrapping = false)
+    @JacksonXmlProperty(namespace = "http://www.topografix.com/GPX/1/1")
     public List<Trkpt> trkpt;
 
 }

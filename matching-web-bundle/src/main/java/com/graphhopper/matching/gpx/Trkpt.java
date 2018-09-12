@@ -19,15 +19,23 @@
 package com.graphhopper.matching.gpx;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty;
 
 import java.util.Date;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class Trkpt {
 
-    public double ele;
-    public Date time;
+    @JacksonXmlProperty(isAttribute = true)
     public double lat;
+    @JacksonXmlProperty(isAttribute = true)
     public double lon;
+
+    @JacksonXmlProperty(namespace = "http://www.topografix.com/GPX/1/1")
+    public Double ele;
+    @JacksonXmlProperty(namespace = "http://www.topografix.com/GPX/1/1")
+    public Date time;
 
 }
