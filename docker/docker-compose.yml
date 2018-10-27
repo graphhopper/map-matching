@@ -1,9 +1,0 @@
-version: "3"
-services:
-    mapmatcher:
-      build:
-        context: ..
-        dockerfile: ./docker/Dockerfile
-      ports:
-       - "8989:8989"
-       - "8990:8990"
