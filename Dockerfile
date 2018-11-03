@@ -8,6 +8,6 @@ RUN apt-get update && apt-get install -y maven
 
 RUN mvn package -DskipTests
 
-EXPOSE 8989  8990
+EXPOSE 8989 8990
 
-CMD ["java", "-jar", "matching-web/target/graphhopper-map-matching-web-0.11-SNAPSHOT.jar", "server", "docker/config.yml"]
+CMD ["java", "-jar", "matching-web/target/graphhopper-map-matching-web-0.12-SNAPSHOT.jar", "server", "docker/config.yml"]
