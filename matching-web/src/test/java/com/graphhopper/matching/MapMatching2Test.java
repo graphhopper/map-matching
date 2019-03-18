@@ -125,7 +125,7 @@ public class MapMatching2Test {
         assertEquals(0, mr.getMatchMillis(), 50);
     }
 
-    private void validateEdgeMatch(EdgeMatch edgeMatch) {
+    static void validateEdgeMatch(EdgeMatch edgeMatch) {
         for (GPXExtension gpxExtension : edgeMatch.getGpxExtensions()) {
             if (gpxExtension.getQueryResult().getSnappedPosition() == QueryResult.Position.TOWER) {
                 if (gpxExtension.getQueryResult().getClosestNode() != edgeMatch.getEdgeState().getAdjNode()

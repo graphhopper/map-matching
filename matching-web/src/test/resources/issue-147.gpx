@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx xmlns="http://www.topografix.com/GPX/1/1" xmlns:gpsies="http://www.gpsies.com/GPX/1/0" creator="GPSies http://www.gpsies.com - Sendl.-O&amp;apos;sch-heim" version="1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd http://www.gpsies.com/GPX/1/0 http://www.gpsies.com/gpsies.xsd">
+  <metadata>
+    <name>JYB928 2019-01-02 0547</name>
+    <link href="http://www.gpsies.com/map.do?fileId=opyocvowlvfftwsr">
+      <text>JYB928 2019-01-02 0547</text>
+      <type>trackOnWeb</type>
+    </link>
+    <time>2016-07-14T17:55:52Z</time>
+    <extensions>
+      <gpsies:property>one-way trip</gpsies:property>
+      <gpsies:trackLengthMeter>20491.0304651953</gpsies:trackLengthMeter>
+      <gpsies:totalAscentMeter>74.0</gpsies:totalAscentMeter>
+      <gpsies:totalDescentMeter>120.0</gpsies:totalDescentMeter>
+      <gpsies:minHeightMeter>481.0</gpsies:minHeightMeter>
+      <gpsies:maxHeightMeter>540.0</gpsies:maxHeightMeter>
+    </extensions>
+  </metadata>
+  <trk>
+    <name>JYB928 2019-01-02 0547</name>
+    <link href="http://www.gpsies.com/map.do?fileId=opyocvowlvfftwsr">
+      <type>trackOnWeb</type>
+    </link>
+    <link href="http://www.gpsies.com/charts/op/map/opyocvowlvfftwsr_map.png">
+      <type>elevationChartUrlMap</type>
+    </link>
+    <link href="http://www.gpsies.com/charts/op/mapThumb/opyocvowlvfftwsr_mapThumb.png">
+      <type>elevationChartUrlMapThumb</type>
+    </link>
+    <link href="http://www.gpsies.com/charts/op/tab/opyocvowlvfftwsr_tab.png">
+      <type>elevationChartUrlTab</type>
+    </link>
+    <trkseg>
+		<trkpt lat="47.579491" lon="-122.15713">
+			<time>2019-01-02T08:25:47Z</time>
+		</trkpt>
+		<trkpt lat="47.578704" lon="-122.14">
+			<time>2019-01-02T08:26:47Z</time>
+		</trkpt>
+		<trkpt lat="47.578472" lon="-122.136157">
+			<time>2019-01-02T08:27:07Z</time>
+		</trkpt>
+		<trkpt lat="47.573102" lon="-122.118426">
+			<time>2019-01-02T08:27:47Z</time>
+		</trkpt>
+    </trkseg>
+  </trk>
+</gpx>
+
