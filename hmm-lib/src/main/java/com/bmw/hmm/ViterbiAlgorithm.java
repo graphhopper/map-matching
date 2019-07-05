@@ -281,10 +281,10 @@ public class ViterbiAlgorithm<S, O, D> {
         sb.append("Message history with log probabilies\n\n");
         int i = 0;
         for (Map<S, Double> message : messageHistory) {
-            sb.append("Time step " + i + "\n");
+            sb.append("Time step ").append(i).append("\n");
             i++;
             for (S state : message.keySet()) {
-                sb.append(state + ": " + message.get(state) + "\n");
+                sb.append(state).append(": ").append(message.get(state)).append("\n");
             }
             sb.append("\n");
         }
@@ -387,7 +387,7 @@ public class ViterbiAlgorithm<S, O, D> {
     private double transitionLogProbability(S prevState, S curState, Map<Transition<S>,
             Double> transitionLogProbabilities) {
         final Double transitionLogProbability =
-                transitionLogProbabilities.get(new Transition<S>(prevState, curState));
+                transitionLogProbabilities.get(new Transition<>(prevState, curState));
         if (transitionLogProbability == null) {
             return Double.NEGATIVE_INFINITY; // Transition has zero probability.
         } else {
