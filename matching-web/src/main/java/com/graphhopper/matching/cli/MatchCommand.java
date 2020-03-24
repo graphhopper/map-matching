@@ -57,26 +57,28 @@ public class MatchCommand extends Command {
                 .type(Double.class)
                 .required(false)
                 .setDefault(2.0);
+        subparser.addArgument("--vehicle")
+                .type(String.class)
+                .required(false)
+                .setDefault("car");
     }
 
     @Override
     public void run(Bootstrap bootstrap, Namespace args) {
         GraphHopperConfig graphHopperConfiguration = new GraphHopperConfig();
         graphHopperConfiguration.putObject("graph.location", "graph-cache");
-        GraphHopper hopper = new GraphHopperOSM().init(graphHopperConfiguration);
-        System.out.println("loading graph from cache");
-        // since we are loading GraphHopper from disk we more or less have to guess the configuration
         String vehicle = args.getString("vehicle");
-        if (Helper.isEmpty(vehicle))
-            vehicle = hopper.getEncodingManager().fetchEdgeEncoders().get(0).toString();
-
         // Penalizing inner-link U-turns only works with fastest weighting, since
         // shortest weighting does not apply penalties to unfavored virtual edges.
         String weightingStr = "fastest";
-        hopper.setProfiles(new ProfileConfig("profile").setVehicle(vehicle).setWeighting(weightingStr).setTurnCosts(false));
+        ProfileConfig profile = new ProfileConfig("profile").setVehicle(vehicle).setWeighting(weightingStr).setTurnCosts(false);
+        graphHopperConfiguration.setProfiles(Collections.singletonList(profile));
+        GraphHopper hopper = new GraphHopperOSM().init(graphHopperConfiguration);
+        System.out.println("loading graph from cache");
         hopper.load(graphHopperConfiguration.getString("graph.location", "graph-cache"));
 
         PMap hints = new PMap().putObject(MAX_VISITED_NODES, args.get("max_visited_nodes"));
+        hints.putObject("profile", profile.getName());
         MapMatching mapMatching = new MapMatching(hopper, hints);
         mapMatching.setTransitionProbabilityBeta(args.getDouble("transition_probability_beta"));
         mapMatching.setMeasurementErrorSigma(args.getInt("gps_accuracy"));
