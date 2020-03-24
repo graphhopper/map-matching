@@ -105,8 +105,8 @@ public class MapMatchingResource {
         hints.putObject(MAX_VISITED_NODES, maxVisitedNodes);
         // resolve profile and remove legacy vehicle/weighting parameters
         String profile = profileResolver.resolveProfile(hints).getName();
-        hints.setVehicle("");
-        hints.setWeighting("");
+        hints.remove("vehicle");
+        hints.remove("weighting");
         hints.putObject("profile", profile);
 
         MapMatching matching = new MapMatching(graphHopper, hints);

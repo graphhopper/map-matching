@@ -80,6 +80,11 @@ public class MapMatching {
     public MapMatching(GraphHopper graphHopper, PMap hints) {
         this.locationIndex = (LocationIndexTree) graphHopper.getLocationIndex();
 
+        if (hints.has("vehicle"))
+            throw new IllegalArgumentException("MapMatching hints may no longer contain a vehicle, use the profile parameter instead, see core/#1958");
+        if (hints.has("weighting"))
+            throw new IllegalArgumentException("MapMatching hints may no longer contain a weighting, use the profile parameter instead, see core/#1958");
+
         if (graphHopper.getProfiles().isEmpty()) {
             throw new IllegalArgumentException("No profiles found, you need to configure at least one profile to use map matching");
         }
