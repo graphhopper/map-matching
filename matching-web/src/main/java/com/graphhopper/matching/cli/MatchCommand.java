@@ -10,6 +10,9 @@ import com.graphhopper.matching.MatchResult;
 import com.graphhopper.matching.Observation;
 import com.graphhopper.matching.gpx.Gpx;
 import com.graphhopper.reader.osm.GraphHopperOSM;
+import com.graphhopper.routing.profiles.DefaultEncodedValueFactory;
+import com.graphhopper.routing.util.DefaultFlagEncoderFactory;
+import com.graphhopper.routing.util.EncodingManager;
 import com.graphhopper.routing.weighting.Weighting;
 import com.graphhopper.util.*;
 import com.graphhopper.util.gpx.GpxFromInstructions;
@@ -60,22 +63,26 @@ public class MatchCommand extends Command {
         subparser.addArgument("--vehicle")
                 .type(String.class)
                 .required(false)
-                .setDefault("car");
+                .setDefault("");
     }
 
     @Override
     public void run(Bootstrap bootstrap, Namespace args) {
         GraphHopperConfig graphHopperConfiguration = new GraphHopperConfig();
-        graphHopperConfiguration.putObject("graph.location", "graph-cache");
+        String ghFolder = "graph-cache";
+        graphHopperConfiguration.putObject("graph.location", ghFolder);
+
         String vehicle = args.getString("vehicle");
+        if (Helper.isEmpty(vehicle))
+            vehicle = EncodingManager.create(new DefaultEncodedValueFactory(), new DefaultFlagEncoderFactory(), ghFolder).fetchEdgeEncoders().get(0).toString();
         // Penalizing inner-link U-turns only works with fastest weighting, since
         // shortest weighting does not apply penalties to unfavored virtual edges.
         String weightingStr = "fastest";
-        ProfileConfig profile = new ProfileConfig("profile").setVehicle(vehicle).setWeighting(weightingStr).setTurnCosts(false);
+        ProfileConfig profile = new ProfileConfig(vehicle + "_profile").setVehicle(vehicle).setWeighting(weightingStr).setTurnCosts(false);
         graphHopperConfiguration.setProfiles(Collections.singletonList(profile));
         GraphHopper hopper = new GraphHopperOSM().init(graphHopperConfiguration);
         System.out.println("loading graph from cache");
-        hopper.load(graphHopperConfiguration.getString("graph.location", "graph-cache"));
+        hopper.load(graphHopperConfiguration.getString("graph.location", ghFolder));
 
         PMap hints = new PMap().putObject(MAX_VISITED_NODES, args.get("max_visited_nodes"));
         hints.putObject("profile", profile.getName());

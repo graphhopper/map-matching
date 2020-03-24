@@ -9,7 +9,8 @@ import io.dropwizard.setup.Bootstrap;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 
-import java.util.Collections;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ImportCommand extends Command {
 
@@ -37,8 +38,12 @@ public class ImportCommand extends Command {
         graphHopperConfiguration.putObject("graph.location", "graph-cache");
         // always using fastest weighting, see comment in MatchCommand
         String weightingStr = "fastest";
-        graphHopperConfiguration.setProfiles(Collections.singletonList(new ProfileConfig("profile").setVehicle(vehicle).setWeighting(weightingStr)));
-
+        List<ProfileConfig> profiles = new ArrayList<>();
+        for (String v : vehicle.split(",")) {
+            v = v.trim();
+            profiles.add(new ProfileConfig(v + "_profile").setVehicle(v).setWeighting(weightingStr));
+        }
+        graphHopperConfiguration.setProfiles(profiles);
         GraphHopper hopper = new GraphHopperOSM().init(graphHopperConfiguration);
         hopper.importOrLoad();
     }
