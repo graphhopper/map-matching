@@ -119,15 +119,13 @@ public class MapMatching {
         RoutingAlgorithmFactory routingAlgorithmFactory = graphHopper.getAlgorithmFactory(profile.getName(), disableCH, disableLM);
         if (routingAlgorithmFactory instanceof CHRoutingAlgorithmFactory) {
             ch = true;
-            CHProfile chProfile = ((CHRoutingAlgorithmFactory) routingAlgorithmFactory).getCHProfile();
-            routingGraph = graphHopper.getGraphHopperStorage().getCHGraph(chProfile);
-            weighting = chProfile.getWeighting();
+            routingGraph = graphHopper.getGraphHopperStorage().getCHGraph(((CHRoutingAlgorithmFactory) routingAlgorithmFactory).getCHProfile());
         } else {
             ch = false;
             routingGraph = graphHopper.getGraphHopperStorage();
-            // since map matching does not support turn costs we have to disable them here explicitly
-            weighting = graphHopper.createWeighting(profile, hints, true);
         }
+        // since map matching does not support turn costs we have to disable them here explicitly
+        weighting = graphHopper.createWeighting(profile, hints, true);
         this.maxVisitedNodes = hints.getInt(Parameters.Routing.MAX_VISITED_NODES, Integer.MAX_VALUE);
     }
 
