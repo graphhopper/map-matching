@@ -54,7 +54,7 @@ java -jar matching-web/target/graphhopper-map-matching-web-1.0-SNAPSHOT.jar matc
 
 Start via:
 ```bash
-java -jar matching-web/target/graphhopper-map-matching-web-1.0-SNAPSHOT.jar server config.yml
+java -jar matching-web/target/graphhopper-map-matching-web-1.0-SNAPSHOT.jar server map-data/config.yml
 ```
 
 Access the simple UI via `localhost:8989`.
@@ -84,6 +84,30 @@ Use this Maven dependency:
     <version>1.0-SNAPSHOT</version>
 </dependency>
 ```
+
+### Docker
+
+Run a dockerized Mapmatcher from sources.
+
+To build the docker container run the following command:
+
+```bash
+docker build -t mapmatcher:master . --build-arg javaopts="<Xmx-Xms-options>"
+```
+
+Where `<Xmx-Xms-options>` are the Java memory allocation flags (e.g. **"-Xmx17g -Xms8g"**) which will be concatenated to the JAVA_OPTS environment variable defined in the Dockerfile.
+
+In order for everything to work a folder in your host machine must be mounted to a container volume, containing both the **config.yml** file with the launch configs and the **OSM file** to be imported. Another folder must also be mounted to persist the built graphs' cache, so that the graphs survive container restarts.
+
+Once the container has been built, deploy it with:
+
+```bash
+docker run -d --name mapmatcher -v <host-map-data-folder-path>:/map-matcher/map-data -v <host-graph-cache-folder-path>:/map-matcher/graph-cache -p 8989:8989 -e IMPORT=<osm-pbf-file> -e VEHICLES="<comma-separated-transport>" mapmatcher:master
+```
+
+Where `<host-map-data-folder-path>` and `<host-graph-cache-folder-path>` are the folders described above, `<osm-pbf-file>` is the map file to be imported and `<comma-separated-transport>` are the transport modes to be included during import.
+
+*-e* parameters can be omitted, in that case import will be skipped and the existing graphs will be used.
 
 ### Note
 
