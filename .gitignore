@@ -12,7 +12,8 @@ nbactions.xml
 .classpath
 .project
 matching-core/build.xml
-/map-data/**/*
+/map-data/*.gz
+/map-data/*.pbf
 bin/
 /matching-core/nbproject/
 matching-web/dependency-reduced-pom.xml
