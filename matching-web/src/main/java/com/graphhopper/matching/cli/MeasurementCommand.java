@@ -26,7 +26,6 @@ import com.graphhopper.matching.MapMatching;
 import com.graphhopper.matching.MatchResult;
 import com.graphhopper.matching.Observation;
 import com.graphhopper.reader.osm.GraphHopperOSM;
-import com.graphhopper.routing.AlgorithmOptions;
 import com.graphhopper.routing.util.*;
 import com.graphhopper.storage.GraphHopperStorage;
 import com.graphhopper.storage.index.LocationIndexTree;
@@ -54,7 +53,7 @@ public class MeasurementCommand extends Command {
     private static final Logger logger = LoggerFactory.getLogger(MeasurementCommand.class);
     private final Map<String, String> properties = new TreeMap<>();
     private BBox bbox;
-    private DistanceCalcEarth distCalc = new DistanceCalcEarth();
+    private final DistanceCalcEarth distCalc = new DistanceCalcEarth();
     private long seed;
     private int count;
 
@@ -97,7 +96,7 @@ public class MeasurementCommand extends Command {
         GraphHopperStorage graph = graphHopper.getGraphHopperStorage();
         bbox = graph.getBounds();
         LocationIndexTree locationIndex = (LocationIndexTree) graphHopper.getLocationIndex();
-        MapMatching mapMatching = new MapMatching(graphHopper, new HintsMap().putObject("profile", "fast_car"));
+        MapMatching mapMatching = new MapMatching(graphHopper, new PMap().putObject("profile", "fast_car"));
         
         // start tests:
         StopWatch sw = new StopWatch().start();

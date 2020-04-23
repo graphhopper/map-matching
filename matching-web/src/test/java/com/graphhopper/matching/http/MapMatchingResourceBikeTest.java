@@ -51,7 +51,7 @@ public class MapMatchingResourceBikeTest {
     }
 
     @ClassRule
-    public static final DropwizardAppRule<MapMatchingServerConfiguration> app = new DropwizardAppRule(MapMatchingApplication.class, createConfig());
+    public static final DropwizardAppRule<MapMatchingServerConfiguration> app = new DropwizardAppRule<>(MapMatchingApplication.class, createConfig());
 
     @AfterClass
     public static void cleanUp() {
