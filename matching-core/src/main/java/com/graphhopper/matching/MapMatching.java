@@ -121,7 +121,16 @@ public class MapMatching {
         if (graphHopper.getLMPreparationHandler().isEnabled() && disableLM && !graphHopper.getRouterConfig().isLMDisablingAllowed())
             throw new IllegalArgumentException("Disabling LM is not allowed");
 
-        if (graphHopper.getLMPreparationHandler().isEnabled() && !disableLM) {
+        boolean disableCH = hints.getBool(Parameters.CH.DISABLE, false);
+        if (graphHopper.getCHPreparationHandler().isEnabled() && disableCH && !graphHopper.getRouterConfig().isCHDisablingAllowed())
+            throw new IllegalArgumentException("Disabling CH is not allowed");
+
+        // see map-matching/#177: both ch.disable and lm.disable can be used to force Dijkstra which is the better
+        // (=faster) choice when the gpx points are close to each other
+        boolean useDijkstra = disableLM || disableCH;
+
+        if (graphHopper.getLMPreparationHandler().isEnabled() && !useDijkstra) {
+            // using LM because u-turn prevention does not work properly with (node-based) CH
             landmarks = graphHopper.getLMPreparationHandler().getPreparation(profile.getName());
         } else {
             landmarks = null;
