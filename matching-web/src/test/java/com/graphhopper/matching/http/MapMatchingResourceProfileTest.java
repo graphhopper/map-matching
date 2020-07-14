@@ -35,8 +35,7 @@ import java.io.File;
 import java.util.Arrays;
 import java.util.Collections;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.*;
 
 /**
  * @author easbar
@@ -48,15 +47,17 @@ public class MapMatchingResourceProfileTest {
     private static MapMatchingServerConfiguration createConfig() {
         MapMatchingServerConfiguration config = new MapMatchingServerConfiguration();
         config.getGraphHopperConfiguration().
-                putObject("graph.flag_encoders", "car|turn_costs=true").
+                putObject("graph.flag_encoders", "car|turn_costs=true,bike").
                 putObject("datareader.file", "../map-data/leipzig_germany.osm.pbf").
                 putObject("graph.location", DIR).
                 setProfiles(Arrays.asList(
                         new Profile("car").setVehicle("car").setWeighting("fastest").setTurnCosts(true),
-                        new Profile("car_no_tc").setVehicle("car").setWeighting("fastest"))
+                        new Profile("car_no_tc").setVehicle("car").setWeighting("fastest"),
+                        new Profile("bike").setVehicle("bike").setWeighting("fastest"))
                 ).
                 setLMProfiles(Arrays.asList(
                         new LMProfile("car"),
+                        new LMProfile("bike"),
                         new LMProfile("car_no_tc").setPreparationProfile("car")
                 )).
                 setCHProfiles(Collections.singletonList(
@@ -76,26 +77,37 @@ public class MapMatchingResourceProfileTest {
 
     @Test
     public void useDefault() {
-        runTest("");
+        runCar("");
     }
 
     @Test
     public void useVehicle() {
         // see map-matching/#178
-        runTest("vehicle=car");
+        runCar("vehicle=car");
+        // todonow: this case still fails because now its trying to find a CH preparation for bike...
+//        runBike("vehicle=bike");
     }
 
     @Test
     public void useProfile() {
-        runTest("profile=car");
+        runCar("profile=car");
+        runBike("profile=bike");
+        runCar("profile=car_no_tc");
     }
 
     @Test
-    public void useProfileNoTC() {
-        runTest("profile=car_no_tc");
+    public void errorOnUnknownProfile() {
+        final Response response = app.client().target("http://localhost:8080/match?profile=xyz")
+                .request()
+                .buildPost(Entity.xml(getClass().getResourceAsStream("tour2-with-loop.gpx")))
+                .invoke();
+        JsonNode json = response.readEntity(JsonNode.class);
+        assertTrue(json.toString(), json.has("message"));
+        assertEquals(400, response.getStatus());
+        assertTrue(json.toString().contains("Could not find profile 'xyz', choose one of: [car, car_no_tc, bike]"));
     }
 
-    private void runTest(String urlParams) {
+    private void runCar(String urlParams) {
         final Response response = app.client().target("http://localhost:8080/match?" + urlParams)
                 .request()
                 .buildPost(Entity.xml(getClass().getResourceAsStream("tour2-with-loop.gpx")))
@@ -109,6 +121,24 @@ public class MapMatchingResourceProfileTest {
         assertEquals(5, WebHelper.decodePolyline(path.get("points").asText(), 10, false).size());
         assertEquals(106.15, path.get("time").asLong() / 1000f, 0.1);
         assertEquals(106.15, json.get("map_matching").get("time").asLong() / 1000f, 0.1);
+        assertEquals(811.56, path.get("distance").asDouble(), 1);
+        assertEquals(811.56, json.get("map_matching").get("distance").asDouble(), 1);
+    }
+
+    private void runBike(String urlParams) {
+        final Response response = app.client().target("http://localhost:8080/match?" + urlParams)
+                .request()
+                .buildPost(Entity.xml(getClass().getResourceAsStream("tour2-with-loop.gpx")))
+                .invoke();
+        JsonNode json = response.readEntity(JsonNode.class);
+        assertFalse(json.toString(), json.has("message"));
+        assertEquals(200, response.getStatus());
+        JsonNode path = json.get("paths").get(0);
+
+        assertEquals(5, path.get("instructions").size());
+        assertEquals(5, WebHelper.decodePolyline(path.get("points").asText(), 10, false).size());
+        assertEquals(162.31, path.get("time").asLong() / 1000f, 0.1);
+        assertEquals(162.31, json.get("map_matching").get("time").asLong() / 1000f, 0.1);
         assertEquals(811.56, path.get("distance").asDouble(), 1);
         assertEquals(811.56, json.get("map_matching").get("distance").asDouble(), 1);
     }
