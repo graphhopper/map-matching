@@ -23,6 +23,7 @@ import com.graphhopper.config.LMProfile;
 import com.graphhopper.config.Profile;
 import com.graphhopper.http.WebHelper;
 import com.graphhopper.util.Helper;
+import com.graphhopper.util.Parameters;
 import io.dropwizard.testing.junit.DropwizardAppRule;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -50,6 +51,8 @@ public class MapMatchingResourceProfileTest {
                 putObject("graph.flag_encoders", "car|turn_costs=true,bike").
                 putObject("datareader.file", "../map-data/leipzig_germany.osm.pbf").
                 putObject("graph.location", DIR).
+                putObject(Parameters.CH.INIT_DISABLING_ALLOWED, true).
+                putObject(Parameters.Landmark.INIT_DISABLING_ALLOWED, true).
                 setProfiles(Arrays.asList(
                         new Profile("car").setVehicle("car").setWeighting("fastest").setTurnCosts(true),
                         new Profile("car_no_tc").setVehicle("car").setWeighting("fastest"),
@@ -76,16 +79,10 @@ public class MapMatchingResourceProfileTest {
     }
 
     @Test
-    public void useDefault() {
-        runCar("");
-    }
-
-    @Test
     public void useVehicle() {
         // see map-matching/#178
         runCar("vehicle=car");
-        // todonow: this case still fails because now its trying to find a CH preparation for bike...
-//        runBike("vehicle=bike");
+        runBike("vehicle=bike");
     }
 
     @Test
@@ -93,6 +90,14 @@ public class MapMatchingResourceProfileTest {
         runCar("profile=car");
         runBike("profile=bike");
         runCar("profile=car_no_tc");
+    }
+
+    @Test
+    public void disableCHLM() {
+        runCar("vehicle=car&lm.disable=true");
+        runCar("vehicle=car&ch.disable=true");
+        runBike("vehicle=bike&lm.disable=true");
+        runBike("vehicle=bike&ch.disable=true");
     }
 
     @Test

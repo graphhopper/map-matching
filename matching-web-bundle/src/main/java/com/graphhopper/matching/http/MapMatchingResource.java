@@ -102,8 +102,13 @@ public class MapMatchingResource {
         hints.putObject(MAX_VISITED_NODES, maxVisitedNodes);
         String weightingVehicleLogStr = "weighting: " + hints.getString("weighting", "") + ", vehicle: " + hints.getString("vehicle", "");
         if (Helper.isEmpty(profile)) {
-            // resolve profile and remove legacy vehicle/weighting parameters
+            // resolve profile and remove legacy vehicle/weighting parameters, we need to explicitly disable CH
+            // here because map matching does not use it
+            boolean hadCHDisable = hints.has(Parameters.CH.DISABLE);
+            hints.putObject(Parameters.CH.DISABLE, true);
             profile = profileResolver.resolveProfile(hints).getName();
+            if (hadCHDisable)
+                hints.remove(Parameters.CH.DISABLE);
             removeLegacyParameters(hints);
         }
         hints.putObject("profile", profile);
