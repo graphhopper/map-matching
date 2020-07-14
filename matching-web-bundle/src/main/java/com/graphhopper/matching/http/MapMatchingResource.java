@@ -104,7 +104,7 @@ public class MapMatchingResource {
         if (Helper.isEmpty(profile)) {
             // resolve profile and remove legacy vehicle/weighting parameters
             // we need to explicitly disable CH here because map matching does not use it
-            PMap pMap = new PMap().putObject(Parameters.CH.DISABLE, true);
+            PMap pMap = new PMap(hints).putObject(Parameters.CH.DISABLE, true);
             profile = profileResolver.resolveProfile(pMap).getName();
             removeLegacyParameters(hints);
         }
