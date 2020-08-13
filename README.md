@@ -1,6 +1,6 @@
 ## Map Matching based on GraphHopper
 
-[![Build Status](https://secure.travis-ci.org/graphhopper/map-matching.png?branch=master)](http://travis-ci.org/graphhopper/map-matching)
+[![Build Status](https://travis-ci.org/Enovea/map-matching.svg?branch=master)](http://travis-ci.org/github/Enovea/map-matching)
 
 Snaps GPX traces to the road using the
 [GraphHopper routing engine](https://github.com/graphhopper/graphhopper). 
@@ -95,24 +95,29 @@ Run a dockerized Mapmatcher from sources.
 mvn compile jib:build
 docker run -d --name graphhopper-map-matching -p 8989:8989 graphhopper-map-matching-web:LATEST
 ```
-Then run a container with this command:
+By default, this container use the map-data/config.yml, the leipzig_germany protobuf osm and launch a webapp accessing via `http://localhost:8989`
 
+You can customise the container in order to use other osm data, config file and shared the graph_cache.
 
-Where `<Xmx-Xms-options>` are the Java memory allocation flags (e.g. **"-Xmx17g -Xms8g"**) which will be concatenated to the JAVA_OPTS environment variable defined in the Dockerfile.
+| Property | Docker type | Default | Description |
+| :------- | :---------- | :------ | :---------- |
+| command arguments | \[ARG...\] from docker run | `server /data/config.yml` | Specify the arguments of the java program. Examples: `server /data/config.yml`, `import /data/europ.osm.pbf`, `match /data/*.gpx`, `getbounds /data/*.gpx` |
+| JAVA_TOOL_OPTIONS | -e: environment variable | _None_ | To add some jvm options. Anyway this program java will be always theses options: `-server -Xconcurrentio -XX:+UseG1GC -Ddw.server.application_connectors[0].bind_host=0.0.0.0 -Ddw.server.application_connectors[0].port=8989` |
+| /graph-cache | -v: volume | _None_ | Sharing the graph_cache created by the import to be used by the server |
+| /data | -v: volume | _None_ | To use another osm data and if you want add a custom config.yml. It is the same volume, so you must do the both (data and config.xml) | 
 
-In order for everything to work a folder in your host machine must be mounted to a container volume, containing both the **config.yml** file with the launch configs and the **OSM file** to be imported. Another folder must also be mounted to persist the built graphs' cache, so that the graphs survive container restarts.
-
-Once the container has been built, deploy it with:
-
-```bash
-docker run -d --name mapmatcher -v <host-map-data-folder-path>:/map-matcher/map-data -v <host-graph-cache-folder-path>:/map-matcher/graph-cache -p 8989:8989 -e IMPORT=<osm-pbf-file> -e VEHICLES="<comma-separated-transport>" mapmatcher:master
-```
-
-Where `<host-map-data-folder-path>` and `<host-graph-cache-folder-path>` are the folders described above, `<osm-pbf-file>` is the map file to be imported and `<comma-separated-transport>` are the transport modes to be included during import.
-
-*-e* parameters can be omitted, in that case import will be skipped and the existing graphs will be used.
-
-
+>**Examples**
+> 
+>Importing Europe OSM using a temporary container 
+>```bash
+> docker run -it --rm -v /graphhopper/graph-cache:/graph-cache -v /graphhopper/map-data:/data -p 8989:8989 graphhopper-map-matching-web import /data/europe-latest.osm.pbf
+>``` 
+>
+>Web Server
+>  ```bash
+>  docker run -v /graphhopper/graph-cache:/graph-cache -v /graphhopper/map-data:/data -e "JAVA_TOOL_OPTIONS=-Xms2g -Xmx4g" -p 8989:8989 graphhopper-map-matching-web
+> ```
+> Here, we mount 2 volumes sharing the graph-cache and the data containing the config.yml and the osm files. Moreover this command add a jvm option using the environment variable $JAVA_TOOL_OPTIONS. By default, it runs a web server.
 
 ### Note
 
