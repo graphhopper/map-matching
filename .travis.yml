@@ -35,7 +35,7 @@ before_deploy:
 
 deploy:
   provider: script
-  script: "mvn jib:build -B"
+  script: "mvn package jib:build -B"
   skip_cleanup: true
   on:
     branch: master
