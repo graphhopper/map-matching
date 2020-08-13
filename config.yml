@@ -1,6 +1,6 @@
 graphhopper:
-  datareader.file: map-data/leipzig_germany.osm.pbf # OSM input file (example data)
-  graph.location: graph-cache
+  datareader.file: /data/leipzig_germany.osm.pbf # OSM input file (example data)
+  graph.location: /graph-cache
   graph.flag_encoders: car
   profiles:
     - name: car

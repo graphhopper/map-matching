@@ -7,8 +7,8 @@
     <artifactId>graphhopper-map-matching-parent</artifactId>
     <name>GraphHopper Map Matching Parent Project</name>
     <version>1.0-SNAPSHOT</version>
-    <packaging>pom</packaging> 
-    <url>https://www.graphhopper.com</url> 
+    <packaging>pom</packaging>
+    <url>https://www.graphhopper.com</url>
     <inceptionYear>2012</inceptionYear>
     <description>
         Super pom of the GraphHopper Map Matching component
@@ -55,20 +55,20 @@
         <org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.alignMultilineTryResources>true
         </org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.alignMultilineTryResources>
     </properties>
-    
+
     <scm>
         <connection>scm:git:git@github.com:graphhopper/map-matching.git</connection>
         <developerConnection>scm:git:git@github.com:graphhopper/map-matching.git</developerConnection>
         <url>git@github.com:graphhopper/map-matching.git</url>
     </scm>
-    
+
     <licenses>
         <license>
             <name>Apache License, Version 2.0</name>
             <url>http://www.apache.org/licenses/LICENSE-2.0</url>
         </license>
     </licenses>
-    
+
     <developers>
         <developer>
             <id>karussell</id>
@@ -76,7 +76,7 @@
             <email>my.name@graphhopper.com</email>
         </developer>
     </developers>
-    
+
     <mailingLists>
         <mailingList>
             <name>GraphHopper</name>
@@ -94,14 +94,14 @@
         <module>matching-web-bundle</module>
         <module>matching-web</module>
     </modules>
-        
-    <build>        
+
+    <build>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.6.0</version>
-                <configuration>        
+                <configuration>
                     <fork>true</fork>
                     <source>1.7</source>
                     <target>1.7</target>
@@ -120,6 +120,51 @@
                 <artifactId>maven-jar-plugin</artifactId>
                 <version>3.0.2</version>
             </plugin>
+            <plugin>
+                <groupId>com.google.cloud.tools</groupId>
+                <artifactId>jib-maven-plugin</artifactId>
+                <version>2.5.2</version>
+                <configuration>
+                    <from>
+                        <image>gcr.io/distroless/java:11</image>
+                    </from>
+                    <to>
+                        <image>graphhopper-map-matching-web</image>
+                        <image>docker.io/jbordeau/${project.artifactId}</image>
+                        <tags>
+                            <tag>${project.version}</tag>
+                        </tags>
+                    </to>
+                    <container>
+                        <args>
+                            <arg>server</arg>
+                            <arg>/data/config.yml</arg>
+                        </args>
+                        <volumes>
+                            <volume>/data</volume>
+                            <volume>/graph-cache</volume>
+                        </volumes>
+                        <ports>
+                            <port>8989</port>
+                        </ports>
+                        <jvmFlags>
+                            <jvmFlag>-server</jvmFlag>
+                            <jvmFlag>-Xconcurrentio</jvmFlag>
+                            <jvmFlag>-XX:+UseG1GC</jvmFlag>
+                            <jvmFlag>-Ddw.server.application_connectors[0].bind_host=0.0.0.0</jvmFlag>
+                            <jvmFlag>-Ddw.server.application_connectors[0].port=8989</jvmFlag>
+                        </jvmFlags>
+                    </container>
+                    <extraDirectories>
+                        <paths>
+                            <path>
+                                <from>../map-data</from>
+                                <into>/data</into>
+                            </path>
+                        </paths>
+                    </extraDirectories>
+                </configuration>
+            </plugin>
         </plugins>
         <extensions>
             <extension>
@@ -128,7 +173,7 @@
                 <version>0.0.4</version>
             </extension>
         </extensions>
-    </build>    
+    </build>
 
     <distributionManagement>
         <repository>
@@ -188,7 +233,7 @@
                             <autoReleaseAfterClose>true</autoReleaseAfterClose>
                         </configuration>
                     </plugin>
-            
+
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-javadoc-plugin</artifactId>
@@ -217,7 +262,6 @@
                     </plugin>
                 </plugins>
             </build>
-        </profile>        
+        </profile>
     </profiles>
-    
 </project>
