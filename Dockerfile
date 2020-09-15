@@ -5,7 +5,7 @@ ARG memory="-Xmx17g -Xms8g"
 
 ENV VEHICLES="car"
 ENV IMPORT=False
-ENV JAVA_OPTS="-server -Xconcurrentio -XX:+UseG1GC -Ddw.server.application_connectors[0].bind_host=0.0.0.0 -Ddw.server.application_connectors[0].port=8989 $memory"
+ENV JAVA_OPTS="-server -Xconcurrentio -XX:+UseG1GC -Ddw.server.applicationConnectors[0].bind_host=0.0.0.0 -Ddw.server.applicationConnectors[0].port=8989 $memory"
 
 RUN mkdir -p /map-matcher && mkdir -p /map-matcher/graph-cache
 
