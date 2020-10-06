@@ -45,7 +45,7 @@ Before re-importing, you need to delete the `graph-cache` directory, which is cr
 
 Now you can match GPX traces against the map:
 ```bash
-java -jar matching-web/target/graphhopper-map-matching-web-1.0-SNAPSHOT.jar match matching-web/src/test/resources/*.gpx
+java -jar matching-web/target/graphhopper-map-matching-web-3.0-SNAPSHOT.jar match matching-web/src/test/resources/*.gpx
 ```
 If you were using multiple vehicles for the import you can use `--vehicle` to select one of them, otherwise the first
 one will be used.
@@ -54,7 +54,7 @@ one will be used.
 
 Start via:
 ```bash
-java -jar matching-web/target/graphhopper-map-matching-web-1.0-SNAPSHOT.jar server config.yml
+java -jar matching-web/target/graphhopper-map-matching-web-3.0-SNAPSHOT.jar server config.yml
 ```
 
 Access the simple UI via `localhost:8989`.
@@ -68,7 +68,7 @@ curl -XPOST -H "Content-Type: application/gpx+xml" -d @matching-web/src/test/res
 
 Determine the bounding box of one or more GPX files:
 ```bash
-java -jar matching-web/target/graphhopper-map-matching-web-1.0-SNAPSHOT.jar getbounds matching-web/src/test/resources/*.gpx
+java -jar matching-web/target/graphhopper-map-matching-web-3.0-SNAPSHOT.jar getbounds matching-web/src/test/resources/*.gpx
 ```
 
 #### Java usage
@@ -81,7 +81,7 @@ Use this Maven dependency:
 <dependency>
     <groupId>com.graphhopper</groupId>
     <artifactId>graphhopper-map-matching-core</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>3.0-SNAPSHOT</version>
 </dependency>
 ```
 
