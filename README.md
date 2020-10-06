@@ -33,7 +33,7 @@ Then you need to import an OSM map for the area you want to do map-matching on, 
 sample data:
 
 ```bash
-java -jar matching-web/target/graphhopper-map-matching-web-1.0-SNAPSHOT.jar import map-data/leipzig_germany.osm.pbf
+java -jar matching-web/target/graphhopper-map-matching-web-3.0-SNAPSHOT.jar import map-data/leipzig_germany.osm.pbf
 ```
 
 OpenStreetMap data in pbf or xml format are available from [here](http://download.geofabrik.de/).
