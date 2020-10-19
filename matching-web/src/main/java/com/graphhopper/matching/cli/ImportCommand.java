@@ -27,6 +27,10 @@ public class ImportCommand extends Command {
                 .type(String.class)
                 .required(false)
                 .setDefault("car");
+        subparser.addArgument("--graph_elevation_provider")
+                .type(String.class)
+                .required(false)
+                .setDefault("");
     }
 
     @Override
@@ -36,6 +40,7 @@ public class ImportCommand extends Command {
         graphHopperConfiguration.putObject("graph.flag_encoders", vehicle);
         graphHopperConfiguration.putObject("datareader.file", args.getString("datasource"));
         graphHopperConfiguration.putObject("graph.location", "graph-cache");
+        graphHopperConfiguration.putObject("graph.elevation.provider", args.getString("graph_elevation_provider"));
         // always using fastest weighting, see comment in MatchCommand
         String weightingStr = "fastest";
         List<Profile> profiles = new ArrayList<>();
