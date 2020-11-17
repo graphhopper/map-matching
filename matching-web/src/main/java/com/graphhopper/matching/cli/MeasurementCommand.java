@@ -138,14 +138,14 @@ public class MeasurementCommand extends Command {
         final double latDelta = bbox.maxLat - bbox.minLat;
         final double lonDelta = bbox.maxLon - bbox.minLon;
         final Random rand = new Random(seed);
-        MiniPerfTest miniPerf = new MiniPerfTest() {
+        MiniPerfTest miniPerf = new MiniPerfTest().setIterations(count).start(new MiniPerfTest.Task() {
             @Override
             public int doCalc(boolean warmup, int run) {
                 double lat = rand.nextDouble() * latDelta + bbox.minLat;
                 double lon = rand.nextDouble() * lonDelta + bbox.minLon;
                 return idx.findNClosest(lat, lon, EdgeFilter.ALL_EDGES, rand.nextDouble() * 500).size();
             }
-        }.setIterations(count).start();
+        });
         print("location_index_match", miniPerf);
     }
 
@@ -161,7 +161,7 @@ public class MeasurementCommand extends Command {
         final double latDelta = bbox.maxLat - bbox.minLat;
         final double lonDelta = bbox.maxLon - bbox.minLon;
         final Random rand = new Random(seed);
-        MiniPerfTest miniPerf = new MiniPerfTest() {
+        MiniPerfTest miniPerf = new MiniPerfTest().setIterations(count).start(new MiniPerfTest.Task() {
             @Override
             public int doCalc(boolean warmup, int run) {
                 // keep going until we find a path (which we may not for certain start/end points)
@@ -201,7 +201,7 @@ public class MeasurementCommand extends Command {
                     }
                 }
             }
-        }.setIterations(count).start();
+        });
         print("map_match", miniPerf);
     }
 
